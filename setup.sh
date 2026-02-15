@@ -1,7 +1,7 @@
 #!/bin/bash
 
 echo "================================================"
-echo "THE UNRELIABLE NARRATOR - Quick Start"
+echo "No Cap Your Honor - Quick Start"
 echo "================================================"
 echo ""
 

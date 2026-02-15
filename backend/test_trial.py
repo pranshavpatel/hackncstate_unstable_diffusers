@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Simple test script to verify the Unreliable Narrator setup
+Simple test script to verify No Cap Your Honor setup
 """
 
 import asyncio
@@ -74,7 +74,7 @@ async def test_trial():
 
 if __name__ == "__main__":
     print("=" * 60)
-    print("THE UNRELIABLE NARRATOR - Test Script")
+    print("No Cap Your Honor - Test Script")
     print("=" * 60)
     print()
     
