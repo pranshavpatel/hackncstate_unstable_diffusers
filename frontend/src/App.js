@@ -95,7 +95,7 @@ function App() {
     <div className="app">
       <div className="container">
         <div className="landing">
-          <h1>The Unreliable Narrator</h1>
+          <h1>No Cap Your Honor</h1>
           <p>AI Courtroom for Misinformation Detection</p>
           <p style={{ fontSize: '1rem', color: '#4a4a4a', fontWeight: '500' }}>
             Submit suspicious content and watch AI agents battle it out in court
@@ -108,10 +108,10 @@ function App() {
 
             {/* Mode Toggle */}
             <div style={{ marginBottom: '30px', textAlign: 'center' }}>
-              <div style={{ 
-                display: 'inline-flex', 
-                backgroundColor: '#1a1a1a', 
-                borderRadius: '12px', 
+              <div style={{
+                display: 'inline-flex',
+                backgroundColor: '#1a1a1a',
+                borderRadius: '12px',
                 padding: '4px',
                 border: '2px solid #333'
               }}>
@@ -149,8 +149,8 @@ function App() {
                 </button>
               </div>
               <p style={{ marginTop: '10px', fontSize: '0.9rem', color: '#888' }}>
-                {mode === 'courtroom' 
-                  ? '🎭 Watch AI agents debate in real-time (slower, detailed)' 
+                {mode === 'courtroom'
+                  ? '🎭 Watch AI agents debate in real-time (slower, detailed)'
                   : '⚡ Get instant verdict with AI analysis (faster)'}
               </p>
             </div>
