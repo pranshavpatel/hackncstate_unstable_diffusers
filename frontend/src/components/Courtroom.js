@@ -146,18 +146,6 @@ const Courtroom = ({ caseId }) => {
           ) : (
             <p style={{ color: '#888' }}>No individual verdicts available</p>
           )}
-
-          {trialState.education && trialState.education.red_flags && (
-            <div style={{ marginTop: '50px', textAlign: 'left', background: 'rgba(196,30,58,0.1)', padding: '30px', borderRadius: '10px', border: '2px solid #c41e3a' }}>
-              <h3 style={{ color: '#ff6b7a', fontSize: '1.8rem', marginBottom: '20px' }}>🚩 What You Should Have Noticed</h3>
-              <h4 style={{ color: '#ff6b7a', marginTop: '20px' }}>Red Flags:</h4>
-              <ul style={{ color: '#e0e0e0', lineHeight: '1.8', fontSize: '1.05rem' }}>
-                {trialState.education.red_flags.map((flag, i) => (
-                  <li key={i} style={{ marginBottom: '10px' }}>{flag}</li>
-                ))}
-              </ul>
-            </div>
-          )}
         </motion.div>
 
         {/* Awareness Score Display */}
