@@ -49,3 +49,7 @@ class TrialState(TypedDict):
     user_score_delta: int
     education_panel: Optional[Dict]  # {red_flags, techniques, decisive_evidence, personalized_tips}
     verdict_report: Optional[Dict]  # Shareable report content
+    
+    # Awareness scoring
+    user_judgements: List[str]  # Per-round judgements: ["plausible", "misleading", "not sure", "neutral"]
+    awareness_score_result: Optional[Dict]  # {rounds: [...], summary: {..., final_score_out_of_10: X}}
