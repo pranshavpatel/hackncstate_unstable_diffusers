@@ -44,7 +44,7 @@ const Courtroom = ({ caseId, originalContent }) => {
       currentAudioRef.current.currentTime = 0;
       currentAudioRef.current = null;
     }
-    
+
     // Clear the queue
     setAudioQueue([]);
     setIsPlayingAudio(false);
@@ -58,7 +58,7 @@ const Courtroom = ({ caseId, originalContent }) => {
       currentAudioRef.current.currentTime = 0;
       currentAudioRef.current = null;
     }
-    
+
     // Remove current audio from queue (it will auto-play next)
     setAudioQueue(prev => prev.slice(1));
     setIsPlayingAudio(false);
@@ -68,8 +68,15 @@ const Courtroom = ({ caseId, originalContent }) => {
   const playAudio = (audioUrl) => {
     if (!audioUrl) return;
 
-    // Add to queue instead of playing immediately
-    setAudioQueue(prev => [...prev, audioUrl]);
+    // Add to queue only if not already queued (prevent duplicates)
+    setAudioQueue(prev => {
+      if (prev.includes(audioUrl)) {
+        console.log('[AUDIO] Skipping duplicate audio:', audioUrl);
+        return prev;
+      }
+      console.log('[AUDIO] Queueing audio:', audioUrl);
+      return [...prev, audioUrl];
+    });
   };
 
   // Process audio queue - play one at a time
