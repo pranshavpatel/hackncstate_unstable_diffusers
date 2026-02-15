@@ -2,6 +2,7 @@ from google import genai
 from anthropic import Anthropic
 from openai import OpenAI
 from together import Together
+from groq import Groq
 from config.settings import Config
 import asyncio
 import time
@@ -12,14 +13,19 @@ class LLMClients:
         self.anthropic = Anthropic(api_key=Config.ANTHROPIC_API_KEY) if Config.ANTHROPIC_API_KEY else None
         self.openai = OpenAI(api_key=Config.OPENAI_API_KEY) if Config.OPENAI_API_KEY else None
         self.together = Together(api_key=Config.TOGETHER_API_KEY) if Config.TOGETHER_API_KEY else None
+        self.groq = Groq(api_key=Config.GROQ_API_KEY) if Config.GROQ_API_KEY else None
     
     async def generate_gemini_pro(self, prompt: str, temperature: float = 0.7) -> str:
-        response = self.client.models.generate_content(
-            model='gemini-2.0-flash',
-            contents=prompt,
-            config={'temperature': temperature}
-        )
-        return response.text
+        try:
+            response = self.client.models.generate_content(
+                model='gemini-2.0-flash',
+                contents=prompt,
+                config={'temperature': temperature}
+            )
+            return response.text
+        except Exception as e:
+            print(f"[Gemini Pro] Failed: {e}, falling back to Groq")
+            return await self.generate_groq(prompt, temperature)
     
     # async def generate_gemini_grounded(self, prompt: str) -> str:
     #     """Generate response using Gemini with Google Search grounding"""
@@ -35,59 +41,41 @@ class LLMClients:
     #     return response.text
 
     async def generate_gemini_flash(self, prompt: str, temperature: float = 0.7) -> str:
-        response = self.client.models.generate_content(
-            model='gemini-2.0-flash',
-            contents=prompt,
-            config={'temperature': temperature}
-        )
-        return response.text
+        try:
+            response = self.client.models.generate_content(
+                model='gemini-2.0-flash',
+                contents=prompt,
+                config={'temperature': temperature}
+            )
+            return response.text
+        except Exception as e:
+            print(f"[Gemini Flash] Failed: {e}, falling back to Groq")
+            return await self.generate_groq(prompt, temperature)
     
     async def generate_gemini_grounded(self, prompt: str) -> str:
         """Generate grounded response using Gemini with Google Search"""
-        response = self.client.models.generate_content(
-            model="gemini-2.0-flash",
-            contents=prompt,
-            config={
-                "temperature": 0.3,
-                "tools": [{"google_search": {}}],
-                "automatic_function_calling": {"disable": False}
-            }
-        )
-        
-        # # Print grounding metadata (search results)
-        # print("\n" + "="*60)
-        # print("GOOGLE SEARCH GROUNDING RESULTS")
-        # print("="*60)
-        
-        # if hasattr(response, 'candidates') and response.candidates:
-        #     for idx, candidate in enumerate(response.candidates):
-        #         if hasattr(candidate, 'grounding_metadata') and candidate.grounding_metadata:
-        #             metadata = candidate.grounding_metadata
-        #             print(f"\nCandidate {idx + 1}:")
-        #             print(f"Grounding Metadata: {metadata}")
-                    
-        #             # Try to extract search entries if available
-        #             if hasattr(metadata, 'search_entry_point'):
-        #                 print(f"Search Entry Point: {metadata.search_entry_point}")
-        #             if hasattr(metadata, 'grounding_chunks'):
-        #                 print(f"Grounding Chunks: {metadata.grounding_chunks}")
-        #             if hasattr(metadata, 'web_search_queries'):
-        #                 print(f"Web Search Queries: {metadata.web_search_queries}")
-        #         else:
-        #             print(f"\nCandidate {idx + 1}: No grounding metadata found")
-        # else:
-        #     print("No candidates with grounding metadata found")
-        
-        # print("="*60 + "\n")
-        
-        if hasattr(response, "text") and response.text:
-            return response.text
-        
-        if response.candidates:
-            parts = response.candidates[0].content.parts
-            return "".join(part.text for part in parts if hasattr(part, "text"))
-        
-        return ""
+        try:
+            response = self.client.models.generate_content(
+                model="gemini-2.0-flash",
+                contents=prompt,
+                config={
+                    "temperature": 0.3,
+                    "tools": [{"google_search": {}}],
+                    "automatic_function_calling": {"disable": False}
+                }
+            )
+            
+            if hasattr(response, "text") and response.text:
+                return response.text
+            
+            if response.candidates:
+                parts = response.candidates[0].content.parts
+                return "".join(part.text for part in parts if hasattr(part, "text"))
+            
+            return ""
+        except Exception as e:
+            print(f"[Gemini Grounded] Failed: {e}, falling back to Groq")
+            return await self.generate_groq(prompt, 0.3)
     
     async def analyze_url_content(self, url: str, prompt: str) -> str:
         """Analyze content from a URL using Gemini"""
@@ -184,6 +172,17 @@ class LLMClients:
             return "Together API not configured"
         response = self.together.chat.completions.create(
             model="meta-llama/Llama-3-70b-chat-hf",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=temperature
+        )
+        return response.choices[0].message.content
+    
+    async def generate_groq(self, prompt: str, temperature: float = 0.7) -> str:
+        """Generate response using Groq (Llama 3)"""
+        if not self.groq:
+            return "Groq API not configured"
+        response = self.groq.chat.completions.create(
+            model="llama-3.3-70b-versatile",
             messages=[{"role": "user", "content": prompt}],
             temperature=temperature
         )

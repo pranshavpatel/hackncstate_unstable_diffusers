@@ -5,6 +5,7 @@ load_dotenv()
 
 class Config:
     GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "")
+    GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
     BLACKBOARD_API_KEY = os.getenv("BLACKBOARD_API_KEY", "")
     BLACKBOARD_BASE_URL = os.getenv("BLACKBOARD_BASE_URL", "https://api.blackboard.io")
     GOOGLE_FACT_CHECK_API_KEY = os.getenv("GOOGLE_FACT_CHECK_API_KEY", "")

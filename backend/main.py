@@ -23,6 +23,7 @@ app.add_middleware(
 class TrialInput(BaseModel):
     content: str
     input_type: str = "text"
+    mode: str = "courtroom"  # "courtroom" or "fasttrack"
 
 class PredictionInput(BaseModel):
     case_id: str
@@ -45,15 +46,17 @@ async def start_trial(trial_input: TrialInput):
     """Start a new trial"""
     try:
         state = create_initial_state(trial_input.content, trial_input.input_type)
+        state["mode"] = trial_input.mode
         case_id = state["case_id"]
         active_trials[case_id] = {"state": state, "status": "started", "streaming": False}
-        return {"case_id": case_id, "status": "started", "message": "Trial initialized"}
+        return {"case_id": case_id, "status": "started", "message": "Trial initialized", "mode": trial_input.mode}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/trial/start-with-file")
 async def start_trial_with_file(
     input_type: str = Form(...),
+    mode: str = Form("courtroom"),
     file: UploadFile = File(...)
 ):
     """Start trial with uploaded file (video)"""
@@ -76,10 +79,11 @@ async def start_trial_with_file(
         
         # Create initial state with file path
         state = create_initial_state(file_path, input_type)
+        state["mode"] = mode
         case_id = state["case_id"]
         active_trials[case_id] = {"state": state, "status": "started", "streaming": False, "uploaded_file": file_path}
         
-        return {"case_id": case_id, "status": "started", "message": "Trial initialized with uploaded file"}
+        return {"case_id": case_id, "status": "started", "message": "Trial initialized with uploaded file", "mode": mode}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -98,6 +102,35 @@ async def stream_trial(case_id: str):
     async def event_generator():
         try:
             state = active_trials[case_id]["state"]
+            mode = state.get("mode", "courtroom")
+            
+            # Fast-track mode: skip courtroom simulation
+            if mode == "fasttrack":
+                from agents.claim_extractor import claim_extractor
+                from agents.claim_triage import claim_triage
+                from agents.investigator import investigator
+                from agents.fasttrack_verdict import fasttrack_verdict
+                
+                yield f"data: {json.dumps({'phase': 'claim_extraction', 'status': 'running'})}\n\n"
+                state = await claim_extractor(state)
+                
+                yield f"data: {json.dumps({'phase': 'claim_triage', 'status': 'running'})}\n\n"
+                state = await claim_triage(state)
+                
+                yield f"data: {json.dumps({'phase': 'investigation', 'status': 'running'})}\n\n"
+                state = await investigator(state)
+                
+                yield f"data: {json.dumps({'phase': 'fasttrack', 'status': 'analyzing'})}\n\n"
+                result_state = await fasttrack_verdict(state)
+                verdict = result_state.get('aggregated_verdict')
+                
+                yield f"data: {json.dumps({'phase': 'verdict', 'verdict': verdict})}\n\n"
+                yield f"data: {json.dumps({'phase': 'complete', 'status': 'finished'})}\n\n"
+                
+                active_trials[case_id]["state"] = result_state
+                return
+            
+            # Courtroom mode: full simulation
             yield f"data: {json.dumps({'phase': 'claim_extraction', 'status': 'running'})}\n\n"
             await asyncio.sleep(0.5)
             
