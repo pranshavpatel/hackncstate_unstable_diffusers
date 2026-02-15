@@ -37,7 +37,7 @@ def create_initial_state(raw_input: str, input_type: str = "text") -> TrialState
         "jury_members": [
             {"juror_id": 1, "model_name": "gemini-pro", "api_provider": "google", "current_lean": 50, "notes": {}},
             {"juror_id": 2, "model_name": "gemini-flash", "api_provider": "google", "current_lean": 50, "notes": {}},
-            {"juror_id": 3, "model_name": "gemini-flash", "api_provider": "google", "current_lean": 50, "notes": {}},
+            {"juror_id": 3, "model_name": "groq", "api_provider": "groq", "current_lean": 50, "notes": {}},
         ],
         "should_terminate": False,
         "termination_reason": None,

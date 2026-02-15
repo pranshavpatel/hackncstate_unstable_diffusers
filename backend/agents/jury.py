@@ -90,6 +90,8 @@ async def jury_update(state: TrialState) -> TrialState:
             response = await llm_clients.generate_claude(prompt, temperature=0.5)
         elif juror["model_name"] == "gemini-flash":
             response = await llm_clients.generate_gemini_flash(prompt, temperature=0.5)
+        elif juror["model_name"] == "groq":
+            response = await llm_clients.generate_groq(prompt, temperature=0.5)
         else:
             response = await llm_clients.generate_gemini_flash(prompt, temperature=0.5)
         
@@ -151,6 +153,8 @@ async def jury_verdict(state: TrialState) -> TrialState:
             response = await llm_clients.generate_gemini_flash(prompt, temperature=0.3)
         elif juror["model_name"] == "gpt4":
             response = await llm_clients.generate_gpt4(prompt, temperature=0.3)
+        elif juror["model_name"] == "groq":
+            response = await llm_clients.generate_groq(prompt, temperature=0.3)
         else:
             response = await llm_clients.generate_gemini_flash(prompt, temperature=0.3)
         
