@@ -12,16 +12,13 @@ Build "The Unreliable Narrator" — a multi-agent AI courtroom simulation for mi
 
 ## TECH STACK
 
-- **Primary LLM**: Google Gemini 2.5 Pro (all primary agents: Prosecutor, Defendant, Investigator, Claim Extraction, primary Juror)
-- **Secondary LLMs for Jury Diversity**: Claude Sonnet (Anthropic API), GPT-4o (OpenAI API), Llama 3 (via Together AI / Groq), Gemini 2.5 Flash
-- **Orchestration**: LangGraph (multi-agent workflow, turn management, state persistence, human-in-the-loop)
-- **Vector Database**: Blackboard.io (ephemeral per-case evidence storage, RAG retrieval, web search capabilities)
-- **Web Search**: Gemini built-in grounding with Google Search + Blackboard.io web search/retrieval
-- **Fact-Checking**: Google Fact Check Tools API
-- **Frontend**: React + Framer Motion (or Next.js) for real-time courtroom UI with streaming debate + gamification dashboard
+- **Primary LLM**: Google Gemini 2.0 Flash (all agents: Prosecutor, Defendant, Investigator, Claim Extraction, all Jurors)
+- **Secondary LLMs for Jury Diversity**: Optional - Claude Sonnet, GPT-4o, Llama 3 (currently using 3x Gemini for cost optimization)
+- **Orchestration**: LangGraph (multi-agent workflow, turn management, state persistence)
+- **Vector Database**: Blackboard.io (ephemeral per-case evidence storage, web search with fallback to mock)
+- **Web Search**: Blackboard.io web search/retrieval (with mock fallback if API unavailable)
+- **Frontend**: React + Framer Motion for real-time courtroom UI with streaming debate
 - **Streaming**: Server-Sent Events (SSE) for real-time debate streaming
-- **Auth & Persistence**: Firebase or Supabase (user accounts, scores, leaderboard — the ONLY persistent storage; everything else is ephemeral per case)
-- **Image Analysis (optional)**: Google Cloud Vision API for image manipulation detection, OCR, reverse image search
 
 ---
 
@@ -146,30 +143,21 @@ Each case creates an ISOLATED collection in Blackboard.io with a unique `case_id
 - The addressed agent MUST respond to the user's input in their next turn
 - This is implemented as a LangGraph human-in-the-loop node
 
-**Step 4.4 — Jury Memory Update (After EACH Argument)**
-- After every single argument (not just at the end of a round), each juror independently:
-  - RAG-queries all public namespaces (investigator, prosecutor, defendant, trial_transcript)
-  - Updates their private `jury_notes` sub-namespace with: current lean score, evidence that swayed them, logical weaknesses spotted
-  - This running memory ensures the final verdict reflects the ENTIRE trial, not just recency bias
-- All 5 jurors update in parallel (LangGraph parallel nodes)
+**Step 4.4 — Jury Memory Update (Removed for Performance)**
+- Jury updates during trial have been removed to reduce API calls
+- Jurors only deliberate at the end with full trial context
+- This reduces API calls from ~33 to ~10 per trial
 
-**Step 4.5 — Multi-Round Rebuttals (Rounds 2-5)**
-- The Prosecutor and Defendant continue alternating, with each round:
-  - RAG-querying the opponent's namespace to find new weaknesses
-  - Revealing NEW evidence from their private arsenal
-  - Directly countering the opponent's previous arguments
-- Each round must introduce NEW arguments or directly counter previous points — NO REPETITION ALLOWED
-- The system enforces novelty via a similarity check: compare new argument embeddings against previous arguments in `trial_transcript`
-- User intervention window available after each complete round
+**Step 4.5 — Multi-Round Rebuttals (2 Rounds)**
+- The Prosecutor and Defendant alternate for 2 rounds maximum
+- Arguments are brief (max 150 words) for faster trials
+- Each round introduces NEW arguments or directly counters previous points
 
 **Step 4.6 — Debate Termination Check (After Each Round)**
 - After each complete round, check if the debate should end. The debate ends when ANY of these triggers fire:
-  1. **Max rounds reached**: Hard cap at **5 rounds**
-  2. **Argument convergence**: Both sides' latest arguments are too similar to their previous arguments (cosine similarity > 0.85 between consecutive arguments from the same side, computed via Blackboard.io embeddings)
+  1. **Max rounds reached**: Hard cap at **2 rounds**
+  2. **Confidence collapse**: One side's confidence score drops below 15% (effective concession)
   3. **Evidence exhaustion**: Neither side cited any NEW evidence in the last round
-  4. **Confidence collapse**: One side's confidence score drops below 15% (effective concession)
-- Implemented as a LangGraph conditional edge after the jury update node
-- If no termination trigger fires, loop back to the next Prosecutor turn
 
 #### Confidence & Logic Weighting for Arguments
 
@@ -194,23 +182,19 @@ Scoring is enforced via structured output from Gemini 2.5 — the model evaluate
 - This is the core gamification mechanic — it forces the user to COMMIT to a judgment
 
 **Step 5.2 — Multi-Model Jury Deliberation (Independent, Parallel)**
-- Each juror is a DIFFERENT AI model (this is critical — diversity of models = diversity of judgment = fewer blind spots):
-  - **Juror 1**: Gemini 2.5 Pro (analytical, evidence-focused reasoning)
-  - **Juror 2**: Claude Sonnet (nuanced, contextual reasoning)
-  - **Juror 3**: Gemini 2.5 Flash (fast pattern recognition)
-  - **Juror 4**: GPT-4o (broad knowledge base)
-  - **Juror 5**: Llama 3 via Together AI/Groq (open-source perspective, different training biases)
-- For a 3-member jury MVP: use Gemini Pro, Claude Sonnet, and Gemini Flash (or GPT-4o)
+- Each juror is a Gemini model (cost-optimized for MVP):
+  - **Juror 1**: Gemini 2.0 Flash (analytical reasoning)
+  - **Juror 2**: Gemini 2.0 Flash (pattern recognition)
+  - **Juror 3**: Gemini 2.0 Flash (evidence evaluation)
+- For production: can add Claude Sonnet, GPT-4o, Llama 3 for true multi-model diversity
 - Each juror independently:
   - RAG-queries ALL public namespaces (investigator, prosecutor, defendant, trial_transcript)
-  - RAG-queries their OWN private `jury_notes` sub-namespace (their running memory from throughout the trial)
   - Produces a verdict with:
     - Confidence score (0-100 on the fake↔real spectrum)
     - Top 3 reasons for their verdict
     - The single strongest piece of evidence that swayed them
-    - Dissenting note if they disagree with what seems to be the apparent consensus
-- All jurors deliberate simultaneously (LangGraph parallel nodes with barrier sync before aggregation)
-- Verdicts are revealed SIMULTANEOUSLY — no juror sees another's verdict before producing their own (prevents groupthink)
+- All jurors deliberate simultaneously (LangGraph parallel nodes)
+- Verdicts are revealed SIMULTANEOUSLY
 
 **Step 5.3 — Aggregated Verdict**
 - Weighted average of all juror confidence scores
@@ -358,7 +342,7 @@ class TrialState(TypedDict):
     
     # Trial state
     current_round: int
-    max_rounds: int  # 5
+    max_rounds: int  # 2
     trial_transcript: list[dict]  # [{agent, round, argument_text, confidence_score, evidence_revealed}]
     
     # Prosecutor state
@@ -494,30 +478,26 @@ Be thorough. The trial depends on the quality of your investigation.
 
 ### Prosecutor Agent
 ```
-You are the Prosecutor in a misinformation trial. Your role is to build the STRONGEST possible case that the submitted content is MISINFORMATION or FAKE.
-You must:
-1. Cite specific evidence from the court record (investigator findings)
-2. Use structured legal reasoning: state the claim → present evidence against it → identify logical fallacies → highlight source credibility issues
-3. Be strategic about which evidence you reveal each round — save strong evidence for rebuttals
-4. Directly address the Defendant's arguments in your rebuttals
-5. Address any user questions directed to you
-6. Your arguments must be grounded in EVIDENCE and LOGIC, not rhetoric
-7. Assign yourself a confidence score (0-100) for how strong your case is after each argument
-If at any point you believe the content may actually be legitimate, you must still argue your position but your confidence score should reflect your actual assessment.
+You are the Prosecutor in a misinformation trial. Argue that the content is MISINFORMATION.
+
+Provide a brief argument (max 150 words) with:
+1. Your main point against the claim
+2. Key evidence
+3. Confidence score (0-100)
+
+Be concise and evidence-focused.
 ```
 
 ### Defendant Agent
 ```
-You are the Defense Attorney in a misinformation trial. Your role is to build the STRONGEST possible case that the submitted content is LEGITIMATE and TRUE.
-You must:
-1. Genuinely steel-man the content's legitimacy — do not weakly oppose
-2. Directly address EVERY point the Prosecutor makes before presenting your own arguments
-3. Provide corroborating sources, proper context, and alternative explanations
-4. Be strategic about revealing evidence — counter the Prosecutor's strongest points with your strongest evidence
-5. Address any user questions directed to you
-6. Identify where the Prosecutor's evidence is weak, outdated, or taken out of context
-7. Assign yourself a confidence score (0-100) after each argument
-If at any point you believe the content may actually be misinformation, you must still argue your position but your confidence score should reflect your actual assessment.
+You are the Defense Attorney. Argue that the content is LEGITIMATE.
+
+Provide a brief rebuttal (max 150 words) with:
+1. Counter the prosecutor's main point
+2. Present supporting evidence
+3. Confidence score (0-100)
+
+Be concise and steel-man the legitimacy.
 ```
 
 ### Juror Agent (Template — customize per model)
@@ -545,40 +525,37 @@ Scoring rubric for evaluating arguments:
 
 ## API KEYS NEEDED
 
-1. **Google Gemini API Key** — All primary agents + built-in Google Search grounding
-2. **Blackboard.io API Key** — Vector DB + web search/retrieval
-3. **Google Fact Check Tools API Key** — Verified fact-check database queries
-4. **Anthropic API Key** — Claude Sonnet as jury member
-5. **OpenAI API Key** — GPT-4o as jury member
-6. **Together AI or Groq API Key** — Llama 3 inference as jury member
-7. **Firebase or Supabase Key** — User auth, scores, leaderboard persistence
-8. **Google Cloud Vision API Key** *(optional)* — Image analysis for image-based cases
+1. **Google Gemini API Key** (Required) — All agents and jurors
+2. **Blackboard.io API Key** (Optional) — Web search (falls back to mock if unavailable)
+3. **Anthropic API Key** (Optional) — Claude Sonnet for jury diversity
+4. **OpenAI API Key** (Optional) — GPT-4o for jury diversity
+5. **Together AI API Key** (Optional) — Llama 3 for jury diversity
 
 ---
 
 ## HACKATHON BUILD PRIORITY
 
-### Day 1: Core Trial Loop
+### Day 1: Core Trial Loop ✅
 1. Set up LangGraph workflow with TrialState
-2. Implement Investigator → Prosecutor → Defendant loop with Gemini 2.5 Pro
-3. Connect Blackboard.io: create/delete collections, namespace CRUD, basic RAG queries
-4. Hardcode: 5 max rounds, basic termination (max rounds only)
-5. Test with a known misinformation case end-to-end in terminal
+2. Implement Investigator → Prosecutor → Defendant loop with Gemini 2.0 Flash
+3. Connect Blackboard.io: create/delete collections, namespace CRUD, web search with mock fallback
+4. Hardcode: 2 max rounds, basic termination (max rounds only)
+5. Test with a known misinformation case end-to-end
 
-### Day 2: Jury + Frontend
-1. Add 3-member jury (Gemini Pro, Claude Sonnet, Gemini Flash) with parallel deliberation
+### Day 2: Jury + Frontend ✅
+1. Add 3-member jury (all Gemini) with parallel deliberation
 2. Build the streaming courtroom UI (React + SSE)
-3. Add user prediction input (lock before verdict reveal)
-4. Add user intervention window (basic question input between rounds)
-5. Implement strategic evidence reveal mechanic (prosecutor/defendant choose what to reveal)
+3. Display full trial transcript with all arguments
+4. Real-time argument display with confidence scores
+5. Brief arguments (150 words max) for faster trials
 
-### Day 3: Polish + Gamification
-1. Scoring system and leaderboard
-2. "What You Should Have Noticed" education panel
-3. Shareable verdict cards
-4. Dramatic verdict reveal animation
-5. Add remaining termination triggers (convergence, exhaustion, confidence collapse)
-6. Mobile responsiveness pass
+### Day 3: Polish + Features (Future)
+1. User prediction input (before verdict)
+2. Scoring system and leaderboard
+3. "What You Should Have Noticed" education panel
+4. Shareable verdict cards
+5. Multi-model jury (Claude, GPT-4o, Llama)
+6. Mobile responsiveness
 
 ### Demo Strategy
 - Have a live misinformation case ready (recent, recognizable)
