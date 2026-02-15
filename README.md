@@ -1,5 +1,6 @@
 # No Cap Your Honor ⚖️
 
+An interactive platform that fights misinformation through AI-led virtual trials, teaching users critical thinking and helping them spot red flags to identify fake or misleading posts in real time.
 <div align="center">
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
