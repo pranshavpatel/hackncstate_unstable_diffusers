@@ -18,7 +18,8 @@ Search the web for REAL, CURRENT information about these claims. For each piece 
 Return ONLY a JSON array:
 [{{"source_url": "actual_url", "text": "specific excerpt with facts/dates", "credibility_score": 8, "supports_claim": true}}]
 
-Be specific. Include dates, names, numbers. No vague statements.
+INSTRUCTIONS
+The response should be a normal JSON like the template given above. Don't give json response with triple back ticks.
 """
 
 async def investigator(state: TrialState) -> TrialState:

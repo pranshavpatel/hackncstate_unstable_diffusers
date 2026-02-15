@@ -8,6 +8,7 @@ PROSECUTOR_PROMPT = """You are the Prosecutor in a misinformation trial. Argue t
 Claims: {claims}
 Evidence: {investigator_evidence}
 {previous_arguments}
+{first_round_argument}
 
 Provide a brief argument (max 150 words) with:
 1. Your main point against the claim
@@ -24,9 +25,15 @@ Confidence guidelines:
 Return JSON:
 {{
   "argument": "brief argument",
-  "confidence_score": 75,
-  "evidence_to_reveal": [{{"source": "url", "text": "excerpt", "credibility_score": 8}}]
+  "confidence_score": <identified score>,
+  "evidence_to_reveal": [{{"source": "url", "text": "excerpt", "credibility_score": <identified score>}}]
 }}
+
+INSTRUCTIONS
+The response should be a normal JSON like the template given above. Don't give json response with triple back ticks.
+For each round, you should have a different argument which adds to your initial reasoning and strengthens your case.
+DO NOT repeat the same points from your first round argument. Build upon it with NEW evidence and reasoning.
+Be specific. Include dates, names, numbers. No vague statements.
 """
 
 async def prosecutor_turn(state: TrialState) -> TrialState:
@@ -53,10 +60,19 @@ async def prosecutor_turn(state: TrialState) -> TrialState:
         recent = state["trial_transcript"][-2:]
         previous_args = "\n".join([f"{t['agent']}: {t['argument_text'][:200]}..." for t in recent])
     
+    # Extract first round prosecutor argument
+    first_round_arg = ""
+    if state["current_round"] > 1:
+        for t in state["trial_transcript"]:
+            if t["agent"] == "prosecutor" and t["round"] == 1:
+                first_round_arg = t["argument_text"]
+                break
+    
     prompt = PROSECUTOR_PROMPT.format(
         claims=claims_text,
         investigator_evidence=str(investigator_context),
-        previous_arguments=f"\n\nPrevious arguments:\n{previous_args}" if previous_args else ""
+        previous_arguments=f"\n\nPrevious arguments:\n{previous_args}" if previous_args else "",
+        first_round_argument=f"\n\nYour first round argument (DO NOT REPEAT):\n{first_round_arg}" if first_round_arg else ""
     )
     
     response = await llm_clients.generate_gemini_pro(prompt, temperature=0.7)
@@ -69,8 +85,14 @@ async def prosecutor_turn(state: TrialState) -> TrialState:
         result = {"argument": response, "confidence_score": 50, "evidence_to_reveal": []}
     
     # Store revealed evidence in prosecutor namespace
+    print(f"\n[PROSECUTOR] Revealing {len(result.get('evidence_to_reveal', []))} pieces of evidence:")
     for evidence in result.get("evidence_to_reveal", []):
-        await blackboard.store_evidence(state["case_id"], "prosecutor", evidence)
+        print(f"  - Source: {evidence.get('source', 'N/A')}")
+        print(f"    Text: {evidence.get('text', 'N/A')[:100]}...")
+        print(f"    Credibility: {evidence.get('credibility_score', 'N/A')}/10")
+        store_result = await blackboard.store_evidence(state["case_id"], "prosecutor", evidence)
+        print(f"    Store result: {store_result}")
+    print()
     
     # Update state
     state["prosecutor_confidence"] = result["confidence_score"]

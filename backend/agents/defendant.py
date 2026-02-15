@@ -24,9 +24,14 @@ Confidence guidelines:
 Return JSON:
 {{
   "argument": "brief rebuttal",
-  "confidence_score": 65,
-  "evidence_to_reveal": [{{"source": "url", "text": "excerpt", "credibility_score": 7}}]
+  "confidence_score": <identified score>,
+  "evidence_to_reveal": [{{"source": "url", "text": "excerpt", "credibility_score": <identified score>}}]
 }}
+
+INSTRUCTIONS
+The response should be a normal JSON like the template given above. Don't give json response with triple back ticks.
+For each round, you should have a different argument which adds to your initial reasoning and strengthens your case.
+Be specific. Include dates, names, numbers. No vague statements.
 """
 
 async def defendant_turn(state: TrialState) -> TrialState:
@@ -69,8 +74,14 @@ async def defendant_turn(state: TrialState) -> TrialState:
         result = {"argument": response, "confidence_score": 50, "evidence_to_reveal": []}
     
     # Store revealed evidence in defendant namespace
+    print(f"\n[DEFENDANT] Revealing {len(result.get('evidence_to_reveal', []))} pieces of evidence:")
     for evidence in result.get("evidence_to_reveal", []):
-        await blackboard.store_evidence(state["case_id"], "defendant", evidence)
+        print(f"  - Source: {evidence.get('source', 'N/A')}")
+        print(f"    Text: {evidence.get('text', 'N/A')[:100]}...")
+        print(f"    Credibility: {evidence.get('credibility_score', 'N/A')}/10")
+        store_result = await blackboard.store_evidence(state["case_id"], "defendant", evidence)
+        print(f"    Store result: {store_result}")
+    print()
     
     # Update state
     state["defendant_confidence"] = result["confidence_score"]
