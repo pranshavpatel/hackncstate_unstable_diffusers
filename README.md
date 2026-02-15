@@ -88,18 +88,6 @@ flowchart TD
     Verdict -->|Show Verdict| Frontend
     
     VectorDB -.->|Auto-Delete| Cleanup[Ephemeral Cleanup]
-    
-    style User fill:#fef3c7,stroke:#f59e0b,stroke-width:2px
-    style Frontend fill:#dbeafe,stroke:#3b82f6,stroke-width:2px
-    style API fill:#dbeafe,stroke:#3b82f6,stroke-width:2px
-    style LangGraph fill:#e0e7ff,stroke:#6366f1,stroke-width:2px
-    style Trial fill:#fee2e2,stroke:#ef4444,stroke-width:2px
-    style FastTrack fill:#d1fae5,stroke:#10b981,stroke-width:2px
-    style Jury fill:#fce7f3,stroke:#ec4899,stroke-width:2px
-    style VectorDB fill:#f3e8ff,stroke:#a855f7,stroke-width:2px
-    style Gemini fill:#fef3c7,stroke:#f59e0b,stroke-width:2px
-    style Groq fill:#fef3c7,stroke:#f59e0b,stroke-width:2px
-    style ElevenLabs fill:#d1fae5,stroke:#10b981,stroke-width:2px
 ```
 
 **Key Flow:**
