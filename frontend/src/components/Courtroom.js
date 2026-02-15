@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import IntakePanel from './IntakePanel';
 import InvestigationPanel from './InvestigationPanel';
@@ -31,20 +31,77 @@ const Courtroom = ({ caseId, originalContent }) => {
   // Current data for active epoch
   const [currentSpeakerData, setCurrentSpeakerData] = useState(null);
 
-  // Audio playback helper
+  // Audio queue state
+  const [audioQueue, setAudioQueue] = useState([]);
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const currentAudioRef = useRef(null); // Track currently playing audio
+
+  // Stop all audio playback and clear queue
+  const stopAllAudio = () => {
+    // Stop currently playing audio
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause();
+      currentAudioRef.current.currentTime = 0;
+      currentAudioRef.current = null;
+    }
+    
+    // Clear the queue
+    setAudioQueue([]);
+    setIsPlayingAudio(false);
+  };
+
+  // Skip current audio and play next in queue
+  const skipToNextAudio = () => {
+    // Stop currently playing audio
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause();
+      currentAudioRef.current.currentTime = 0;
+      currentAudioRef.current = null;
+    }
+    
+    // Remove current audio from queue (it will auto-play next)
+    setAudioQueue(prev => prev.slice(1));
+    setIsPlayingAudio(false);
+  };
+
+  // Audio playback helper with queue
   const playAudio = (audioUrl) => {
     if (!audioUrl) return;
 
-    try {
-      const audio = new Audio(`http://localhost:8000${audioUrl}`);
-      audio.play().catch(err => {
-        console.error('Audio playback failed:', err);
-        // Silently fail if audio can't play (e.g., browser autoplay restrictions)
-      });
-    } catch (error) {
-      console.error('Error creating audio element:', error);
-    }
+    // Add to queue instead of playing immediately
+    setAudioQueue(prev => [...prev, audioUrl]);
   };
+
+  // Process audio queue - play one at a time
+  useEffect(() => {
+    if (audioQueue.length === 0 || isPlayingAudio) return;
+
+    const playNextAudio = async () => {
+      setIsPlayingAudio(true);
+      const audioUrl = audioQueue[0];
+
+      try {
+        const audio = new Audio(`http://localhost:8000${audioUrl}`);
+        currentAudioRef.current = audio; // Store reference to current audio
+
+        // Wait for audio to finish before playing next
+        await new Promise((resolve, reject) => {
+          audio.onended = resolve;
+          audio.onerror = reject;
+          audio.play().catch(reject);
+        });
+      } catch (error) {
+        console.error('Audio playback failed:', error);
+      } finally {
+        // Remove played audio from queue and mark as not playing
+        currentAudioRef.current = null;
+        setAudioQueue(prev => prev.slice(1));
+        setIsPlayingAudio(false);
+      }
+    };
+
+    playNextAudio();
+  }, [audioQueue, isPlayingAudio]);
 
   // Listen to backend SSE stream and buffer all data
   useEffect(() => {
@@ -201,21 +258,31 @@ const Courtroom = ({ caseId, originalContent }) => {
 
     switch (actState) {
       case 'INTAKE':
+        // Stop audio when leaving intake
+        stopAllAudio();
         // Skip investigation, go directly to trial
         setCurrentEpoch(0);
         setActState('EPOCH_PROSECUTOR');
         break;
       case 'INVESTIGATION':
+        // Stop audio when leaving investigation
+        stopAllAudio();
         setCurrentEpoch(0);
         setActState('EPOCH_PROSECUTOR');
         break;
       case 'EPOCH_PROSECUTOR':
+        // Skip current audio and play defendant's audio next
+        skipToNextAudio();
         setActState('EPOCH_DEFENDER');
         break;
       case 'EPOCH_DEFENDER':
+        // Skip current audio when moving to user judgment
+        skipToNextAudio();
         setActState('EPOCH_USER');
         break;
       case 'EPOCH_USER':
+        // Stop audio when moving to next round or final verdict
+        stopAllAudio();
         if (currentEpoch < 1) {
           setCurrentEpoch(currentEpoch + 1);
           setActState('EPOCH_PROSECUTOR');
@@ -224,6 +291,8 @@ const Courtroom = ({ caseId, originalContent }) => {
         }
         break;
       case 'FINAL_USER_VERDICT':
+        // Stop audio when going to final verdict
+        stopAllAudio();
         setActState('FINAL_VERDICT');
         break;
       default:
