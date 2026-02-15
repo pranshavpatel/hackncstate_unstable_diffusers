@@ -31,6 +31,21 @@ const Courtroom = ({ caseId, originalContent }) => {
   // Current data for active epoch
   const [currentSpeakerData, setCurrentSpeakerData] = useState(null);
 
+  // Audio playback helper
+  const playAudio = (audioUrl) => {
+    if (!audioUrl) return;
+
+    try {
+      const audio = new Audio(`http://localhost:8000${audioUrl}`);
+      audio.play().catch(err => {
+        console.error('Audio playback failed:', err);
+        // Silently fail if audio can't play (e.g., browser autoplay restrictions)
+      });
+    } catch (error) {
+      console.error('Error creating audio element:', error);
+    }
+  };
+
   // Listen to backend SSE stream and buffer all data
   useEffect(() => {
     let eventSource = null;
@@ -89,14 +104,23 @@ const Courtroom = ({ caseId, originalContent }) => {
               agent: data.agent,
               round: data.round,
               argument: data.argument,
-              confidence: data.confidence
+              confidence: data.confidence,
+              audio_url: data.audio_url  // Store audio URL from backend
             }];
 
             // Set ready flags based on what we received
             if (data.agent === 'prosecutor') {
               setProsecutorReady(true);
+              // Auto-play audio for prosecutor
+              if (data.audio_url) {
+                playAudio(data.audio_url);
+              }
             } else if (data.agent === 'defendant') {
               setDefenderReady(true);
+              // Auto-play audio for defendant
+              if (data.audio_url) {
+                playAudio(data.audio_url);
+              }
             }
 
             return newTranscript;
