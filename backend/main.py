@@ -28,6 +28,10 @@ class PredictionInput(BaseModel):
     verdict: str  # "real" or "fake"
     confidence: str  # "low", "medium", "high"
 
+class JudgementInput(BaseModel):
+    case_id: str
+    judgement: str  # "plausible", "misleading", "not sure", "neutral"
+
 # Store active trials in memory (for demo purposes)
 active_trials = {}
 
@@ -86,6 +90,9 @@ async def stream_trial(case_id: str):
                 elif node_name == "verdict_aggregator":
                     verdict = node_state.get('aggregated_verdict')
                     yield f"data: {json.dumps({'phase': 'verdict', 'verdict': verdict})}\n\n"
+                elif node_name == "awareness_scorer":
+                    awareness = node_state.get('awareness_score_result')
+                    yield f"data: {json.dumps({'phase': 'awareness_score', 'awareness_score': awareness})}\n\n"
                 elif node_name == "education_generator":
                     education = node_state.get('education_panel')
                     yield f"data: {json.dumps({'phase': 'education', 'education': education})}\n\n"
@@ -114,6 +121,25 @@ async def submit_prediction(case_id: str, prediction: PredictionInput):
     }
     
     return {"status": "prediction_recorded"}
+
+@app.post("/api/trial/{case_id}/judgement")
+async def submit_judgement(case_id: str, judgement: JudgementInput):
+    """Submit user judgement for a round"""
+    if case_id not in active_trials:
+        raise HTTPException(status_code=404, detail="Trial not found")
+    
+    # Validate judgement
+    valid_judgements = ["plausible", "misleading", "not sure", "neutral"]
+    user_judgement = judgement.judgement.lower().strip()
+    
+    # Coerce invalid judgements to "neutral"
+    if user_judgement not in valid_judgements:
+        user_judgement = "neutral"
+    
+    # Store in state
+    active_trials[case_id]["state"]["user_judgements"].append(user_judgement)
+    
+    return {"status": "judgement_recorded", "judgement": user_judgement}
 
 @app.get("/api/trial/{case_id}/status")
 async def get_trial_status(case_id: str):

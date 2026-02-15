@@ -9,6 +9,7 @@ from agents.defendant import defendant_turn
 from agents.jury import jury_update, jury_verdict
 from agents.verdict import verdict_aggregator, termination_check, score_calculator
 from agents.education import education_generator, report_generator
+from agents.awareness_scorer import awareness_scorer
 from utils.blackboard import blackboard
 import uuid
 
@@ -45,7 +46,10 @@ def create_initial_state(raw_input: str, input_type: str = "text") -> TrialState
         "aggregated_verdict": None,
         "user_score_delta": 0,
         "education_panel": None,
-        "verdict_report": None
+        "verdict_report": None,
+        "user_judgements": [],
+        "awareness_score_result": None,
+        "trial_transcript": []
     }
 
 async def setup_case(state: TrialState) -> TrialState:
@@ -86,6 +90,7 @@ def create_trial_graph():
     workflow.add_node("jury_verdict", jury_verdict)
     workflow.add_node("verdict_aggregator", verdict_aggregator)
     workflow.add_node("score_calculator", score_calculator)
+    workflow.add_node("awareness_scorer", awareness_scorer)
     workflow.add_node("education_generator", education_generator)
     workflow.add_node("report_generator", report_generator)
     workflow.add_node("cleanup", cleanup_case)
@@ -115,7 +120,8 @@ def create_trial_graph():
     # Verdict flow
     workflow.add_edge("jury_verdict", "verdict_aggregator")
     workflow.add_edge("verdict_aggregator", "score_calculator")
-    workflow.add_edge("score_calculator", "education_generator")
+    workflow.add_edge("score_calculator", "awareness_scorer")
+    workflow.add_edge("awareness_scorer", "education_generator")
     workflow.add_edge("education_generator", "report_generator")
     workflow.add_edge("report_generator", "cleanup")
     workflow.add_edge("cleanup", END)
