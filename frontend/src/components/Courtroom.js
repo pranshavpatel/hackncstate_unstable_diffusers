@@ -23,6 +23,7 @@ const Courtroom = ({ caseId, originalContent }) => {
   const [prosecutorReady, setProsecutorReady] = useState(false);
   const [defenderReady, setDefenderReady] = useState(false);
   const [verdictReady, setVerdictReady] = useState(false);
+  const [isFasttrackMode, setIsFasttrackMode] = useState(false);
 
   // Conversation history for display
   const [conversationHistory, setConversationHistory] = useState([]);
@@ -100,10 +101,24 @@ const Courtroom = ({ caseId, originalContent }) => {
 
             return newTranscript;
           });
+        } else if (data.phase === 'fasttrack') {
+          // Fasttrack analysis phase - set flag to show loading
+          console.log('Fasttrack analysis in progress:', data);
+          setIsFasttrackMode(true);
         } else if (data.phase === 'verdict') {
           console.log('Verdict data:', data);
+          console.log('Verdict object:', data.verdict);
+          console.log('Verdict mode:', data.verdict?.mode);
           setVerdict(data.verdict);
           setVerdictReady(true);
+
+          // If this is a fasttrack verdict, automatically jump to final verdict
+          if (data.verdict?.mode === 'fasttrack') {
+            console.log('Fasttrack verdict detected, transitioning to FINAL_VERDICT');
+            setActState('FINAL_VERDICT');
+          } else {
+            console.log('Regular courtroom verdict - NOT auto-transitioning');
+          }
         } else if (data.phase === 'awareness_score') {
           console.log('Awareness score data:', data);
           if (data.awareness_score) {
@@ -255,17 +270,28 @@ const Courtroom = ({ caseId, originalContent }) => {
     </div>
   );
 
+  console.log('Current actState:', actState, 'verdictReady:', verdictReady, 'isFasttrackMode:', isFasttrackMode);
+
   return (
     <div className="courtroom-bg">
       <div className="overlay">
         <AnimatePresence mode="wait">
 
           {actState === 'INTAKE' && (
-            <IntakePanel
-              key="intake"
-              claim={claim}
-              onStartInvestigation={handleContinue}
-            />
+            <>
+              {(verdictReady || isFasttrackMode) ? (
+                // Show loading when in fasttrack mode or when verdict is ready
+                <div className="panel" key="fasttrack-loading">
+                  <LoadingSpinner message={isFasttrackMode ? "⚡ Analyzing content with AI..." : "Processing verdict..."} />
+                </div>
+              ) : (
+                <IntakePanel
+                  key="intake"
+                  claim={claim}
+                  onStartInvestigation={handleContinue}
+                />
+              )}
+            </>
           )}
 
           {actState === 'INVESTIGATION' && (

@@ -71,6 +71,7 @@ async def fasttrack_verdict(state: TrialState) -> TrialState:
     print(f"Verdict: {verdict['verdict_category']} (Score: {verdict['confidence_score']})")
     
     state["aggregated_verdict"] = {
+        "mode": "fasttrack",  # Critical for frontend to detect fasttrack mode
         "score": verdict["confidence_score"],
         "category": verdict["verdict_category"],
         "summary": " | ".join(verdict.get("top_3_reasons", [])),
