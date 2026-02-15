@@ -86,7 +86,7 @@ function App() {
   if (caseId) {
     return (
       <div className="app">
-        <Courtroom caseId={caseId} />
+        <Courtroom caseId={caseId} originalContent={content} />
       </div>
     );
   }
@@ -97,12 +97,12 @@ function App() {
         <div className="landing">
           <h1>The Unreliable Narrator</h1>
           <p>AI Courtroom for Misinformation Detection</p>
-          <p style={{ fontSize: '1rem', color: '#888' }}>
+          <p style={{ fontSize: '1rem', color: '#4a4a4a', fontWeight: '500' }}>
             Submit suspicious content and watch AI agents battle it out in court
           </p>
 
           <div className="input-section">
-            <h3 style={{ marginBottom: '20px', color: '#d4af37' }}>
+            <h3 style={{ marginBottom: '20px', color: '#1a1a1a', fontWeight: 'bold' }}>
               Submit Content for Trial
             </h3>
 
@@ -171,84 +171,49 @@ function App() {
               </button>
               <button
                 className={inputType === 'image' ? 'btn-input-type active' : 'btn-input-type'}
-                onClick={() => { setInputType('image'); setContent(''); }}
+                onClick={() => { setInputType('image'); setSelectedFile(null); }}
               >
                 🖼️ Image
               </button>
               <button
                 className={inputType === 'video' ? 'btn-input-type active' : 'btn-input-type'}
-                onClick={() => { setInputType('video'); setContent(''); }}
+                onClick={() => { setInputType('video'); setSelectedFile(null); }}
               >
                 🎥 Video
               </button>
             </div>
 
-            {/* Text Input */}
-            {inputType === 'text' && (
+            {/* Input Fields */}
+            {(inputType === 'text' || inputType === 'url') && (
               <textarea
+                placeholder={inputType === 'text' ? 'Enter suspicious text...' : 'Enter URL...'}
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
-                placeholder="Paste a suspicious claim, article, or social media post here..."
-              />
-            )}
-
-            {/* URL Input */}
-            {inputType === 'url' && (
-              <input
-                type="url"
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                placeholder="Paste a news article URL here..."
                 style={{
                   width: '100%',
+                  minHeight: '150px',
                   padding: '15px',
-                  fontSize: '1rem',
+                  marginBottom: '20px',
                   borderRadius: '8px',
                   border: '2px solid #333',
                   backgroundColor: '#1a1a1a',
                   color: '#fff',
-                  marginBottom: '20px'
+                  fontSize: '1rem',
+                  fontFamily: 'inherit',
+                  resize: 'vertical'
                 }}
               />
             )}
 
-            {/* Image Upload */}
-            {inputType === 'image' && (
+            {(inputType === 'image' || inputType === 'video') && (
               <div style={{ marginBottom: '20px' }}>
                 <input
                   type="file"
-                  accept="image/*"
+                  accept={inputType === 'image' ? 'image/*' : 'video/*'}
                   onChange={handleFileChange}
                   style={{
                     width: '100%',
                     padding: '15px',
-                    fontSize: '1rem',
-                    borderRadius: '8px',
-                    border: '2px solid #333',
-                    backgroundColor: '#1a1a1a',
-                    color: '#fff',
-                    cursor: 'pointer'
-                  }}
-                />
-                {selectedFile && (
-                  <p style={{ marginTop: '10px', color: '#d4af37', fontSize: '0.9rem' }}>
-                    Selected: {selectedFile.name} ({(selectedFile.size / 1024 / 1024).toFixed(2)} MB)
-                  </p>
-                )}
-              </div>
-            )}
-
-            {/* Video Upload */}
-            {inputType === 'video' && (
-              <div style={{ marginBottom: '20px' }}>
-                <input
-                  type="file"
-                  accept="video/*"
-                  onChange={handleFileChange}
-                  style={{
-                    width: '100%',
-                    padding: '15px',
-                    fontSize: '1rem',
                     borderRadius: '8px',
                     border: '2px solid #333',
                     backgroundColor: '#1a1a1a',
@@ -273,19 +238,19 @@ function App() {
             </button>
           </div>
 
-          <div style={{ marginTop: '60px', color: '#888' }}>
-            <h3 style={{ color: '#d4af37', marginBottom: '20px' }}>How It Works</h3>
+          <div style={{ marginTop: '60px', color: '#2d2d2d' }}>
+            <h3 style={{ color: '#1a1a1a', marginBottom: '20px', fontWeight: 'bold' }}>How It Works</h3>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px', textAlign: 'left' }}>
               <div>
-                <h4 style={{ color: '#d4af37' }}>1. Submit</h4>
+                <h4 style={{ color: 'var(--color-oak)', fontWeight: 'bold' }}>1. Submit</h4>
                 <p>Enter text, paste a URL, or upload an image/video</p>
               </div>
               <div>
-                <h4 style={{ color: '#d4af37' }}>2. Watch</h4>
+                <h4 style={{ color: 'var(--color-oak)', fontWeight: 'bold' }}>2. Watch</h4>
                 <p>AI agents debate in real-time courtroom trial</p>
               </div>
               <div>
-                <h4 style={{ color: '#d4af37' }}>3. Learn</h4>
+                <h4 style={{ color: 'var(--color-oak)', fontWeight: 'bold' }}>3. Learn</h4>
                 <p>Multi-model jury delivers verdict with evidence</p>
               </div>
             </div>

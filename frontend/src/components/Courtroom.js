@@ -1,20 +1,36 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import AwarenessScore from './AwarenessScore';
+import { AnimatePresence } from 'framer-motion';
+import IntakePanel from './IntakePanel';
+import InvestigationPanel from './InvestigationPanel';
+import EpochPanel from './EpochPanel';
+import ConversationHistory from './ConversationHistory';
+import FinalVerdictPanel from './FinalVerdictPanel';
 
-const Courtroom = ({ caseId }) => {
-  const [trialState, setTrialState] = useState({
-    phase: 'starting',
-    currentRound: 0,
-    transcript: [],
-    verdict: null,
-    education: null,
-    awarenessScore: null
-  });
+const Courtroom = ({ caseId, originalContent }) => {
+  // State machine following the exact flow requested
+  const [actState, setActState] = useState('INTAKE');
+  const [currentEpoch, setCurrentEpoch] = useState(0); // 0-indexed, so 0 = epoch 1
 
-  const [awaitingJudgement, setAwaitingJudgement] = useState(false);
-  const [submittedJudgements, setSubmittedJudgements] = useState([]);
+  // Data buffers from backend stream
+  const [claim, setClaim] = useState(originalContent || 'Loading claim...');
+  const [evidence, setEvidence] = useState([]);
+  const [transcript, setTranscript] = useState([]);
+  const [verdict, setVerdict] = useState(null);
+  const [awarenessScore, setAwarenessScore] = useState(null);
 
+  // Loading states for each phase
+  const [investigationReady, setInvestigationReady] = useState(false);
+  const [prosecutorReady, setProsecutorReady] = useState(false);
+  const [defenderReady, setDefenderReady] = useState(false);
+  const [verdictReady, setVerdictReady] = useState(false);
+
+  // Conversation history for display
+  const [conversationHistory, setConversationHistory] = useState([]);
+
+  // Current data for active epoch
+  const [currentSpeakerData, setCurrentSpeakerData] = useState(null);
+
+  // Listen to backend SSE stream and buffer all data
   useEffect(() => {
     let eventSource = null;
     let mounted = true;
@@ -25,42 +41,81 @@ const Courtroom = ({ caseId }) => {
       eventSource.onmessage = (event) => {
         if (!mounted) return;
         const data = JSON.parse(event.data);
+        console.log('SSE Data received:', data);
 
-        if (data.phase === 'fasttrack') {
-          setTrialState(prev => ({ ...prev, phase: 'fasttrack' }));
-        } else if (data.phase === 'claim_extraction') {
-          setTrialState(prev => ({ ...prev, phase: 'claims' }));
+        if (data.claim) {
+          setClaim(data.claim);
+        }
+
+        if (data.phase === 'claim_extraction') {
+          // Just note that claims are being extracted
         } else if (data.phase === 'investigation') {
-          setTrialState(prev => ({ ...prev, phase: 'investigation' }));
+          console.log('Investigation data:', data);
+          if (data.evidence) {
+            console.log('Setting evidence:', data.evidence);
+            setEvidence(data.evidence);
+            setInvestigationReady(true);
+          }
+          // Also check for sources field (in case backend uses different field name)
+          if (data.sources) {
+            console.log('Setting sources as evidence:', data.sources);
+            setEvidence(data.sources);
+            setInvestigationReady(true);
+          }
+          // Backend sends evidence_count instead of evidence array
+          if (data.evidence_count !== undefined) {
+            console.log('Evidence count received:', data.evidence_count);
+            // Create placeholder evidence based on count
+            const placeholderEvidence = Array.from({ length: data.evidence_count }, (_, i) => ({
+              source: `Evidence Source ${i + 1}`,
+              summary: 'Evidence analyzed and processed.',
+              score: 7
+            }));
+            setEvidence(placeholderEvidence);
+            setInvestigationReady(true);
+          }
         } else if (data.phase === 'trial') {
-          setTrialState(prev => ({
-            ...prev,
-            phase: 'trial',
-            currentRound: data.round,
-            transcript: [...prev.transcript, {
+          console.log('Trial data:', data);
+          // Buffer trial arguments
+          setTranscript(prev => {
+            const exists = prev.some(e =>
+              e.agent === data.agent &&
+              e.round === data.round
+            );
+            if (exists) return prev;
+
+            const newTranscript = [...prev, {
               agent: data.agent,
               round: data.round,
               argument: data.argument,
               confidence: data.confidence
-            }]
-          }));
+            }];
 
-          // Prompt for judgement after defendant (round complete)
-          if (data.agent === 'defendant') {
-            setAwaitingJudgement(true);
-          }
+            // Set ready flags based on what we received
+            if (data.agent === 'prosecutor') {
+              setProsecutorReady(true);
+            } else if (data.agent === 'defendant') {
+              setDefenderReady(true);
+            }
+
+            return newTranscript;
+          });
         } else if (data.phase === 'verdict') {
-          setTrialState(prev => ({ ...prev, phase: 'verdict', verdict: data.verdict }));
+          console.log('Verdict data:', data);
+          setVerdict(data.verdict);
+          setVerdictReady(true);
         } else if (data.phase === 'awareness_score') {
-          setTrialState(prev => ({ ...prev, awarenessScore: data.awareness_score }));
-        } else if (data.phase === 'education') {
-          setTrialState(prev => ({ ...prev, education: data.education }));
+          console.log('Awareness score data:', data);
+          if (data.awareness_score) {
+            setAwarenessScore(data.awareness_score);
+          }
         } else if (data.phase === 'complete') {
           eventSource.close();
         }
       };
 
-      eventSource.onerror = () => {
+      eventSource.onerror = (error) => {
+        console.error('SSE Error:', error);
         eventSource.close();
       };
     };
@@ -73,244 +128,246 @@ const Courtroom = ({ caseId }) => {
     };
   }, [caseId]);
 
-  const submitJudgement = async (judgement) => {
+  // Debug effect
+  useEffect(() => {
+    console.log('Evidence updated:', evidence);
+    console.log('Investigation ready:', investigationReady);
+  }, [evidence, investigationReady]);
+
+  // Check if current state can proceed
+  const canProceed = () => {
+    switch (actState) {
+      case 'INVESTIGATION':
+        return investigationReady && evidence.length > 0;
+      case 'EPOCH_PROSECUTOR':
+        const prosecutorEntry = transcript.find(t =>
+          t.agent === 'prosecutor' && t.round === currentEpoch + 1
+        );
+        return prosecutorEntry !== undefined;
+      case 'EPOCH_DEFENDER':
+        const defenderEntry = transcript.find(t =>
+          (t.agent === 'defendant' || t.agent === 'defender') && t.round === currentEpoch + 1
+        );
+        return defenderEntry !== undefined;
+      case 'FINAL_VERDICT':
+        return verdictReady && verdict !== null;
+      default:
+        return true; // INTAKE and EPOCH_USER don't need backend data
+    }
+  };
+
+  // Advance to next state
+  const handleContinue = () => {
+    if (!canProceed()) return; // Don't proceed if data not ready
+
+    switch (actState) {
+      case 'INTAKE':
+        // Skip investigation, go directly to trial
+        setCurrentEpoch(0);
+        setActState('EPOCH_PROSECUTOR');
+        break;
+      case 'INVESTIGATION':
+        setCurrentEpoch(0);
+        setActState('EPOCH_PROSECUTOR');
+        break;
+      case 'EPOCH_PROSECUTOR':
+        setActState('EPOCH_DEFENDER');
+        break;
+      case 'EPOCH_DEFENDER':
+        setActState('EPOCH_USER');
+        break;
+      case 'EPOCH_USER':
+        if (currentEpoch < 1) {
+          setCurrentEpoch(currentEpoch + 1);
+          setActState('EPOCH_PROSECUTOR');
+        } else {
+          setActState('FINAL_USER_VERDICT');
+        }
+        break;
+      case 'FINAL_USER_VERDICT':
+        setActState('FINAL_VERDICT');
+        break;
+      default:
+        break;
+    }
+  };
+
+  // Submit user judgement for current round
+  const handleUserJudgement = async (judgement) => {
     try {
-      const response = await fetch(`http://localhost:8000/api/trial/${caseId}/judgement`, {
+      await fetch(`http://localhost:8000/api/trial/${caseId}/judgement`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ case_id: caseId, judgement })
       });
 
-      if (response.ok) {
-        setSubmittedJudgements(prev => [...prev, judgement]);
-        setAwaitingJudgement(false);
-      }
+      setConversationHistory(prev => [...prev, {
+        agent: 'user',
+        round: currentEpoch + 1,
+        argument: `User judgement: ${judgement}`,
+        confidence: null
+      }]);
+
+      handleContinue();
     } catch (error) {
       console.error('Error submitting judgement:', error);
     }
   };
 
-  if (trialState.phase === 'starting' || trialState.phase === 'claims' || trialState.phase === 'investigation' || trialState.phase === 'fasttrack') {
-    return (
-      <div className="loading">
-        <div className="spinner"></div>
-        <p>Preparing the courtroom...</p>
-        {trialState.phase === 'claims' && <p>Extracting claims...</p>}
-        {trialState.phase === 'investigation' && <p>Gathering evidence...</p>}
-        {trialState.phase === 'fasttrack' && <p>⚡ Analyzing content with AI...</p>}
-      </div>
-    );
-  }
+  // Get current speaker's data based on state
+  useEffect(() => {
+    if (actState === 'EPOCH_PROSECUTOR' || actState === 'EPOCH_DEFENDER') {
+      const agent = actState === 'EPOCH_PROSECUTOR' ? 'prosecutor' : 'defendant';
+      const round = currentEpoch + 1;
 
-  if (trialState.phase === 'verdict' && trialState.verdict) {
-    const isFastTrack = trialState.verdict.mode === 'fasttrack';
-    
-    if (isFastTrack) {
-      const { final_verdict, confidence, reasoning, key_findings } = trialState.verdict;
-      const categoryClass = final_verdict === 'VERIFIED' ? 'true' : final_verdict === 'FAKE' ? 'false' : 'uncertain';
-      
-      return (
-        <div className="verdict-section">
-          <h2>⚡ Fast-Track Verdict</h2>
-          
-          <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.5 }} style={{ background: 'rgba(45,45,45,0.9)', padding: '40px', borderRadius: '15px', border: '3px solid #d4af37' }}>
-            <h2 style={{ color: '#d4af37', fontSize: '2.5rem' }}>⚡ Instant Analysis</h2>
-            <div className="verdict-score" style={{ fontSize: '4rem', margin: '20px 0', color: '#d4af37' }}>{confidence}%</div>
-            <div className={`verdict-category ${categoryClass}`} style={{ fontSize: '1.8rem', padding: '15px', borderRadius: '10px', marginBottom: '20px' }}>
-              {final_verdict}
-            </div>
-            <p style={{ color: '#b0b0b0', fontSize: '1.1rem', marginBottom: '30px', lineHeight: '1.8' }}>{reasoning}</p>
-            
-            {key_findings && key_findings.length > 0 && (
-              <div style={{ marginTop: '30px', textAlign: 'left' }}>
-                <h3 style={{ color: '#d4af37', marginBottom: '15px' }}>Key Findings:</h3>
-                <ul style={{ color: '#e0e0e0', lineHeight: '1.8' }}>
-                  {key_findings.map((finding, i) => (
-                    <li key={i} style={{ marginBottom: '10px' }}>{finding}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </motion.div>
-        </div>
-      );
+      const entry = transcript.find(t => t.agent === agent && t.round === round);
+      if (entry) {
+        setCurrentSpeakerData(entry);
+
+        setConversationHistory(prev => {
+          const exists = prev.some(e => e.agent === agent && e.round === round);
+          if (!exists) {
+            return [...prev, entry];
+          }
+          return prev;
+        });
+      }
     }
-    
-    // Original courtroom verdict display
-    const { score, category, individual_verdicts, summary } = trialState.verdict;
-    const categoryClass = score > 60 ? 'true' : score < 40 ? 'false' : 'uncertain';
+  }, [actState, currentEpoch, transcript]);
 
-    return (
-      <div className="verdict-section">
-        <h2>Trial Complete</h2>
-
-        <div style={{ marginBottom: '40px', textAlign: 'left', background: 'rgba(45,45,45,0.9)', padding: '30px', borderRadius: '10px', border: '2px solid #d4af37' }}>
-          <h3 style={{ color: '#d4af37', marginBottom: '20px' }}>📜 Full Trial Transcript</h3>
-          {trialState.transcript.map((entry, i) => (
-            <div key={i} style={{ marginBottom: '25px', borderLeft: entry.agent === 'prosecutor' ? '4px solid #c41e3a' : '4px solid #228b22', paddingLeft: '20px', background: 'rgba(26,26,26,0.5)', padding: '15px', borderRadius: '5px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
-                <strong style={{ color: entry.agent === 'prosecutor' ? '#ff6b7a' : '#90ee90', textTransform: 'capitalize', fontSize: '1.1rem' }}>
-                  {entry.agent === 'prosecutor' ? '⚖️ Prosecutor' : '🛡️ Defense'} - Round {entry.round}
-                </strong>
-                <span style={{ color: '#d4af37', fontWeight: 'bold' }}>Confidence: {entry.confidence}%</span>
-              </div>
-              <p style={{ lineHeight: '1.8', color: '#e0e0e0', fontSize: '1.05rem' }}>{entry.argument}</p>
-            </div>
-          ))}
-        </div>
-
-        <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.5 }} style={{ background: 'rgba(45,45,45,0.9)', padding: '40px', borderRadius: '15px', border: '3px solid #d4af37' }}>
-          <h2 style={{ color: '#d4af37', fontSize: '2.5rem' }}>⚖️ The Verdict</h2>
-          <div className="verdict-score" style={{ fontSize: '4rem', margin: '20px 0', color: '#d4af37' }}>{score}/100</div>
-          <div className={`verdict-category ${categoryClass}`} style={{ fontSize: '1.8rem', padding: '15px', borderRadius: '10px', marginBottom: '20px' }}>
-            {category}
-          </div>
-          <p style={{ color: '#b0b0b0', fontSize: '1.1rem', marginBottom: '30px' }}>{summary}</p>
-
-          <h3 style={{ color: '#d4af37', marginTop: '40px', marginBottom: '20px', fontSize: '1.8rem' }}>👥 Individual Jury Verdicts</h3>
-          {individual_verdicts && individual_verdicts.length > 0 ? (
-            <div className="individual-verdicts" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
-              {individual_verdicts.map((v, i) => (
-                <div key={i} style={{ background: 'rgba(26,26,26,0.7)', padding: '25px', borderRadius: '10px', border: '2px solid #555' }}>
-                  <h4 style={{ color: '#d4af37', fontSize: '1.3rem', marginBottom: '15px' }}>Juror {v.juror_id}</h4>
-                  <p style={{ color: '#b0b0b0', marginBottom: '10px' }}><strong>Model:</strong> {v.model}</p>
-                  <p style={{ fontSize: '1.5rem', color: '#d4af37', margin: '15px 0' }}><strong>Score:</strong> {v.confidence_score}/100</p>
-                  <p style={{ color: '#e0e0e0', lineHeight: '1.6' }}><strong>Top Reason:</strong> {v.top_3_reasons && v.top_3_reasons[0]}</p>
-                  {v.key_evidence && <p style={{ color: '#b0b0b0', marginTop: '10px', fontSize: '0.9rem' }}><strong>Key Evidence:</strong> {v.key_evidence}</p>}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p style={{ color: '#888' }}>No individual verdicts available</p>
-          )}
-        </motion.div>
-
-        {/* Awareness Score Display */}
-        {trialState.awarenessScore && (
-          <AwarenessScore awarenessScore={trialState.awarenessScore} />
-        )}
+  // Loading spinner component
+  const LoadingSpinner = ({ message = 'Processing...' }) => (
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      padding: '2rem'
+    }}>
+      <div style={{
+        fontSize: '3rem',
+        animation: 'spin 1s linear infinite'
+      }}>
+        🔨
       </div>
-    );
-  }
+      <p style={{ marginTop: '1rem', color: 'var(--color-oak)', fontWeight: 'bold' }}>
+        {message}
+      </p>
+    </div>
+  );
 
   return (
-    <div className="courtroom">
-      {/* Judgement Overlay */}
-      {awaitingJudgement && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0,0,0,0.85)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000
-        }}>
-          <motion.div
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            style={{
-              background: 'linear-gradient(135deg, rgba(45,45,45,0.95), rgba(26,26,26,0.95))',
-              padding: '50px',
-              borderRadius: '20px',
-              border: '3px solid #d4af37',
-              maxWidth: '600px',
-              textAlign: 'center'
-            }}
-          >
-            <h2 style={{ color: '#d4af37', fontSize: '2rem', marginBottom: '20px' }}>
-              Round {trialState.currentRound} Complete
-            </h2>
-            <p style={{ color: '#e0e0e0', fontSize: '1.2rem', marginBottom: '30px', lineHeight: '1.6' }}>
-              Based on what you just heard, how would you judge these statements?
-            </p>
+    <div className="courtroom-bg">
+      <div className="overlay">
+        <AnimatePresence mode="wait">
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '15px' }}>
-              {['Plausible', 'Misleading', 'Not Sure', 'Neutral'].map((option) => (
+          {actState === 'INTAKE' && (
+            <IntakePanel
+              key="intake"
+              claim={claim}
+              onStartInvestigation={handleContinue}
+            />
+          )}
+
+          {actState === 'INVESTIGATION' && (
+            <InvestigationPanel
+              key="investigation"
+              evidence={evidence}
+              onProceed={handleContinue}
+              loading={!investigationReady}
+            />
+          )}
+
+          {actState.startsWith('EPOCH') && (
+            <div key="epoch" className="panel" style={{ maxWidth: '1200px' }}>
+              <ConversationHistory
+                transcript={conversationHistory}
+                currentRound={currentEpoch + 1}
+                showJudgement={actState === 'EPOCH_USER'}
+                onJudge={handleUserJudgement}
+                awaitingJudgement={false}
+              />
+
+              {(actState === 'EPOCH_PROSECUTOR' || actState === 'EPOCH_DEFENDER') && (
+                <>
+                  {currentSpeakerData ? (
+                    <EpochPanel
+                      currentPhase={actState === 'EPOCH_PROSECUTOR' ? 'prosecutor' : 'defender'}
+                      charActive={false}
+                      transcript={[currentSpeakerData]}
+                      currentRound={currentEpoch + 1}
+                    />
+                  ) : (
+                    <LoadingSpinner />
+                  )}
+                </>
+              )}
+
+              {actState !== 'EPOCH_USER' && (
                 <button
-                  key={option}
-                  onClick={() => submitJudgement(option.toLowerCase())}
-                  style={{
-                    padding: '20px',
-                    fontSize: '1.2rem',
-                    fontWeight: 'bold',
-                    cursor: 'pointer',
-                    border: '2px solid #d4af37',
-                    borderRadius: '10px',
-                    background: 'rgba(212,175,55,0.1)',
-                    color: '#d4af37',
-                    transition: 'all 0.3s'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.target.style.background = 'rgba(212,175,55,0.3)';
-                    e.target.style.transform = 'scale(1.05)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.background = 'rgba(212,175,55,0.1)';
-                    e.target.style.transform = 'scale(1)';
-                  }}
+                  onClick={handleContinue}
+                  className="btn-oak"
+                  style={{ marginTop: '2rem' }}
+                  disabled={!canProceed()}
                 >
-                  {option}
+                  {canProceed() ? 'Continue →' : 'Loading...'}
                 </button>
-              ))}
+              )}
             </div>
-          </motion.div>
-        </div>
-      )}
+          )}
 
-      <div className="courtroom-header">
-        <h2>The Trial</h2>
-        <div className="round-indicator">Round {trialState.currentRound} of 2</div>
-      </div>
-
-      <div style={{ background: 'rgba(45,45,45,0.9)', padding: '30px', borderRadius: '10px', marginBottom: '30px' }}>
-        <h3 style={{ color: '#d4af37', marginBottom: '20px' }}>Trial Transcript</h3>
-        {trialState.transcript.length === 0 ? (
-          <p style={{ color: '#888' }}>Waiting for arguments...</p>
-        ) : (
-          trialState.transcript.map((entry, i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              style={{
-                marginBottom: '20px',
-                borderLeft: entry.agent === 'prosecutor' ? '3px solid #c41e3a' : '3px solid #228b22',
-                paddingLeft: '15px'
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                <strong style={{ color: entry.agent === 'prosecutor' ? '#ff6b7a' : '#90ee90', textTransform: 'capitalize' }}>
-                  {entry.agent} - Round {entry.round}
-                </strong>
-                <span style={{ color: '#b0b0b0' }}>Confidence: {entry.confidence}%</span>
+          {actState === 'FINAL_USER_VERDICT' && (
+            <div key="final-user-verdict" className="panel">
+              <h2 style={{ textAlign: 'center', marginBottom: '2rem', color: 'var(--color-oak)' }}>
+                Your Final Verdict
+              </h2>
+              <p style={{ textAlign: 'center', marginBottom: '2rem' }}>
+                Based on all the evidence and arguments, what is your verdict?
+              </p>
+              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+                <button
+                  onClick={() => { handleContinue(); }}
+                  className="btn-oak"
+                  style={{ background: '#dc2626', width: 'auto', padding: '1rem 3rem' }}
+                >
+                  FAKE
+                </button>
+                <button
+                  onClick={() => { handleContinue(); }}
+                  className="btn-oak"
+                  style={{ background: '#10b981', width: 'auto', padding: '1rem 3rem' }}
+                >
+                  REAL
+                </button>
               </div>
-              <p style={{ lineHeight: '1.6', color: '#d0d0d0' }}>{entry.argument}</p>
-            </motion.div>
-          ))
-        )}
+            </div>
+          )}
+
+          {actState === 'FINAL_VERDICT' && (
+            <>
+              {verdict ? (
+                <FinalVerdictPanel
+                  key="verdict"
+                  verdict={verdict}
+                  awarenessScore={awarenessScore}
+                  onRestart={() => window.location.reload()}
+                />
+              ) : (
+                <div className="panel">
+                  <LoadingSpinner />
+                </div>
+              )}
+            </>
+          )}
+
+        </AnimatePresence>
       </div>
 
-      <div className="jury-panel">
-        <h3>The Jury</h3>
-        <div className="jurors">
-          <div className="juror">
-            <div className="juror-avatar">G</div>
-            <div className="juror-name">Gemini Pro</div>
-          </div>
-          <div className="juror">
-            <div className="juror-avatar">G</div>
-            <div className="juror-name">Gemini Flash</div>
-          </div>
-          <div className="juror">
-            <div className="juror-avatar">G</div>
-            <div className="juror-name">Gemini Flash</div>
-          </div>
-        </div>
-      </div>
+      <style>{`
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 };
