@@ -3,6 +3,8 @@ from anthropic import Anthropic
 from openai import OpenAI
 from together import Together
 from config.settings import Config
+import asyncio
+import time
 
 class LLMClients:
     def __init__(self):
@@ -86,6 +88,74 @@ class LLMClients:
             return "".join(part.text for part in parts if hasattr(part, "text"))
         
         return ""
+    
+    async def analyze_url_content(self, url: str, prompt: str) -> str:
+        """Analyze content from a URL using Gemini"""
+        response = self.client.models.generate_content(
+            model='gemini-2.0-flash',
+            contents=[url, prompt],
+            config={'temperature': 0.3}
+        )
+        return response.text
+    
+    async def analyze_video(self, video_file_path: str, prompt: str) -> str:
+        """Analyze video content using Gemini"""
+        # Upload video file to Gemini
+        print(f"[VIDEO] Uploading video: {video_file_path}")
+        video_file = self.client.files.upload(file=video_file_path)
+        print(f"[VIDEO] Upload complete. File name: {video_file.name}")
+        print(f"[VIDEO] Processing state: {video_file.state}")
+        
+        # Wait for processing
+        while video_file.state == "PROCESSING":
+            print("[VIDEO] Waiting for video processing...")
+            await asyncio.sleep(2)
+            video_file = self.client.files.get(name=video_file.name)
+        
+        if video_file.state == "FAILED":
+            raise Exception(f"Video processing failed: {video_file.name}")
+        
+        print(f"[VIDEO] Processing complete. Generating content...")
+        
+        # Generate content from video
+        response = self.client.models.generate_content(
+            model='gemini-2.0-flash',
+            contents=[video_file, prompt],
+            config={'temperature': 0.3}
+        )
+        
+        # Clean up uploaded file
+        try:
+            self.client.files.delete(name=video_file.name)
+            print(f"[VIDEO] Cleaned up uploaded file: {video_file.name}")
+        except:
+            pass
+        
+        return response.text
+    
+    async def analyze_image(self, image_file_path: str, prompt: str) -> str:
+        """Analyze image content using Gemini"""
+        print(f"[IMAGE] Uploading image: {image_file_path}")
+        
+        # Upload image file to Gemini
+        image_file = self.client.files.upload(file=image_file_path)
+        print(f"[IMAGE] Upload complete. File name: {image_file.name}")
+        
+        # Generate content from image
+        response = self.client.models.generate_content(
+            model='gemini-2.0-flash',
+            contents=[image_file, prompt],
+            config={'temperature': 0.3}
+        )
+        
+        # Clean up uploaded file
+        try:
+            self.client.files.delete(name=image_file.name)
+            print(f"[IMAGE] Cleaned up uploaded file: {image_file.name}")
+        except:
+            pass
+        
+        return response.text
 
     
     async def generate_claude(self, prompt: str, temperature: float = 0.7) -> str:

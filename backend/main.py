@@ -1,10 +1,11 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Optional
 import json
 import asyncio
+import os
 from workflow import trial_graph, create_initial_state
 from config.settings import Config
 
@@ -49,6 +50,39 @@ async def start_trial(trial_input: TrialInput):
         return {"case_id": case_id, "status": "started", "message": "Trial initialized"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/trial/start-with-file")
+async def start_trial_with_file(
+    input_type: str = Form(...),
+    file: UploadFile = File(...)
+):
+    """Start trial with uploaded file (video)"""
+    try:
+        # Create uploads directory if it doesn't exist
+        upload_dir = "/tmp/unreliable_narrator_uploads"
+        os.makedirs(upload_dir, exist_ok=True)
+        
+        # Save uploaded file with unique name
+        import uuid
+        file_extension = os.path.splitext(file.filename)[1]
+        unique_filename = f"{uuid.uuid4()}{file_extension}"
+        file_path = os.path.join(upload_dir, unique_filename)
+        
+        print(f"[FILE UPLOAD] Saving {file.filename} to {file_path}")
+        with open(file_path, "wb") as f:
+            content = await file.read()
+            f.write(content)
+        print(f"[FILE UPLOAD] Saved {len(content)} bytes")
+        
+        # Create initial state with file path
+        state = create_initial_state(file_path, input_type)
+        case_id = state["case_id"]
+        active_trials[case_id] = {"state": state, "status": "started", "streaming": False, "uploaded_file": file_path}
+        
+        return {"case_id": case_id, "status": "started", "message": "Trial initialized with uploaded file"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.get("/api/trial/{case_id}/stream")
 async def stream_trial(case_id: str):

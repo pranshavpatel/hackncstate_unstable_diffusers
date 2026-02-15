@@ -87,6 +87,32 @@ body {
   transform: none;
 }
 
+/* Input Type Selector */
+.btn-input-type {
+  padding: 10px 20px;
+  font-size: 1rem;
+  background: rgba(45, 45, 45, 0.8);
+  color: #b0b0b0;
+  border: 2px solid #555;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: all 0.3s;
+}
+
+.btn-input-type:hover {
+  background: rgba(212, 175, 55, 0.2);
+  border-color: #d4af37;
+  color: #d4af37;
+}
+
+.btn-input-type.active {
+  background: #d4af37;
+  color: #1a1a1a;
+  border-color: #d4af37;
+}
+
+
 /* Courtroom */
 .courtroom {
   padding: 20px;
