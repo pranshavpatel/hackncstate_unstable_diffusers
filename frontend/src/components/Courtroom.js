@@ -26,7 +26,9 @@ const Courtroom = ({ caseId }) => {
         if (!mounted) return;
         const data = JSON.parse(event.data);
 
-        if (data.phase === 'claim_extraction') {
+        if (data.phase === 'fasttrack') {
+          setTrialState(prev => ({ ...prev, phase: 'fasttrack' }));
+        } else if (data.phase === 'claim_extraction') {
           setTrialState(prev => ({ ...prev, phase: 'claims' }));
         } else if (data.phase === 'investigation') {
           setTrialState(prev => ({ ...prev, phase: 'investigation' }));
@@ -88,18 +90,53 @@ const Courtroom = ({ caseId }) => {
     }
   };
 
-  if (trialState.phase === 'starting' || trialState.phase === 'claims' || trialState.phase === 'investigation') {
+  if (trialState.phase === 'starting' || trialState.phase === 'claims' || trialState.phase === 'investigation' || trialState.phase === 'fasttrack') {
     return (
       <div className="loading">
         <div className="spinner"></div>
         <p>Preparing the courtroom...</p>
         {trialState.phase === 'claims' && <p>Extracting claims...</p>}
         {trialState.phase === 'investigation' && <p>Gathering evidence...</p>}
+        {trialState.phase === 'fasttrack' && <p>⚡ Analyzing content with AI...</p>}
       </div>
     );
   }
 
   if (trialState.phase === 'verdict' && trialState.verdict) {
+    const isFastTrack = trialState.verdict.mode === 'fasttrack';
+    
+    if (isFastTrack) {
+      const { final_verdict, confidence, reasoning, key_findings } = trialState.verdict;
+      const categoryClass = final_verdict === 'VERIFIED' ? 'true' : final_verdict === 'FAKE' ? 'false' : 'uncertain';
+      
+      return (
+        <div className="verdict-section">
+          <h2>⚡ Fast-Track Verdict</h2>
+          
+          <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.5 }} style={{ background: 'rgba(45,45,45,0.9)', padding: '40px', borderRadius: '15px', border: '3px solid #d4af37' }}>
+            <h2 style={{ color: '#d4af37', fontSize: '2.5rem' }}>⚡ Instant Analysis</h2>
+            <div className="verdict-score" style={{ fontSize: '4rem', margin: '20px 0', color: '#d4af37' }}>{confidence}%</div>
+            <div className={`verdict-category ${categoryClass}`} style={{ fontSize: '1.8rem', padding: '15px', borderRadius: '10px', marginBottom: '20px' }}>
+              {final_verdict}
+            </div>
+            <p style={{ color: '#b0b0b0', fontSize: '1.1rem', marginBottom: '30px', lineHeight: '1.8' }}>{reasoning}</p>
+            
+            {key_findings && key_findings.length > 0 && (
+              <div style={{ marginTop: '30px', textAlign: 'left' }}>
+                <h3 style={{ color: '#d4af37', marginBottom: '15px' }}>Key Findings:</h3>
+                <ul style={{ color: '#e0e0e0', lineHeight: '1.8' }}>
+                  {key_findings.map((finding, i) => (
+                    <li key={i} style={{ marginBottom: '10px' }}>{finding}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </motion.div>
+        </div>
+      );
+    }
+    
+    // Original courtroom verdict display
     const { score, category, individual_verdicts, summary } = trialState.verdict;
     const categoryClass = score > 60 ? 'true' : score < 40 ? 'false' : 'uncertain';
 

@@ -11,6 +11,7 @@ function App() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [caseId, setCaseId] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [mode, setMode] = useState('courtroom'); // 'courtroom' or 'fasttrack'
 
   // Auto-detect URLs in text input
   useEffect(() => {
@@ -46,7 +47,8 @@ function App() {
     try {
       const response = await axios.post(`${API_BASE}/api/trial/start`, {
         content: content,
-        input_type: inputType
+        input_type: inputType,
+        mode: mode
       });
 
       setCaseId(response.data.case_id);
@@ -64,6 +66,7 @@ function App() {
       const formData = new FormData();
       formData.append('file', selectedFile);
       formData.append('input_type', inputType);
+      formData.append('mode', mode);
 
       const response = await axios.post(`${API_BASE}/api/trial/start-with-file`, formData, {
         headers: {
@@ -102,6 +105,55 @@ function App() {
             <h3 style={{ marginBottom: '20px', color: '#d4af37' }}>
               Submit Content for Trial
             </h3>
+
+            {/* Mode Toggle */}
+            <div style={{ marginBottom: '30px', textAlign: 'center' }}>
+              <div style={{ 
+                display: 'inline-flex', 
+                backgroundColor: '#1a1a1a', 
+                borderRadius: '12px', 
+                padding: '4px',
+                border: '2px solid #333'
+              }}>
+                <button
+                  onClick={() => setMode('courtroom')}
+                  style={{
+                    padding: '12px 30px',
+                    fontSize: '1rem',
+                    borderRadius: '8px',
+                    border: 'none',
+                    cursor: 'pointer',
+                    transition: 'all 0.3s',
+                    backgroundColor: mode === 'courtroom' ? '#d4af37' : 'transparent',
+                    color: mode === 'courtroom' ? '#000' : '#fff',
+                    fontWeight: mode === 'courtroom' ? 'bold' : 'normal'
+                  }}
+                >
+                  ⚖️ Courtroom Simulation
+                </button>
+                <button
+                  onClick={() => setMode('fasttrack')}
+                  style={{
+                    padding: '12px 30px',
+                    fontSize: '1rem',
+                    borderRadius: '8px',
+                    border: 'none',
+                    cursor: 'pointer',
+                    transition: 'all 0.3s',
+                    backgroundColor: mode === 'fasttrack' ? '#d4af37' : 'transparent',
+                    color: mode === 'fasttrack' ? '#000' : '#fff',
+                    fontWeight: mode === 'fasttrack' ? 'bold' : 'normal'
+                  }}
+                >
+                  ⚡ Fast-Track Verdict
+                </button>
+              </div>
+              <p style={{ marginTop: '10px', fontSize: '0.9rem', color: '#888' }}>
+                {mode === 'courtroom' 
+                  ? '🎭 Watch AI agents debate in real-time (slower, detailed)' 
+                  : '⚡ Get instant verdict with AI analysis (faster)'}
+              </p>
+            </div>
 
             {/* Input Type Selector */}
             <div style={{ marginBottom: '20px', display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
@@ -217,7 +269,7 @@ function App() {
               onClick={handleSubmit}
               disabled={loading || ((inputType === 'text' || inputType === 'url') && !content.trim()) || ((inputType === 'video' || inputType === 'image') && !selectedFile)}
             >
-              {loading ? 'Starting Trial...' : 'Start Trial'}
+              {loading ? (mode === 'fasttrack' ? 'Analyzing...' : 'Starting Trial...') : (mode === 'fasttrack' ? '⚡ Get Instant Verdict' : '⚖️ Start Trial')}
             </button>
           </div>
 
