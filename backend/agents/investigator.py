@@ -5,47 +5,50 @@ import json
 from datetime import datetime
 
 INVESTIGATOR_PROMPT = """You are the Court Investigator in a misinformation trial. Your role is NEUTRAL evidence gathering.
-You do NOT take sides. You search for ALL relevant evidence — both supporting and contradicting the claims.
 
 Claims to investigate:
 {claims}
 
-For each piece of evidence you find, provide:
-- source_url: The URL of the source
-- text: Relevant excerpt from the source
-- credibility_score: 1-10 rating based on domain reputation, author credentials, editorial standards
-- supports_claim: true/false - does this evidence support or contradict the claim?
+Search the web for REAL, CURRENT information about these claims. For each piece of evidence:
+- Find actual URLs from credible sources (news sites, official sites, fact-checkers)
+- Extract specific facts, dates, quotes
+- Rate source credibility (1-10)
+- Note if it supports or contradicts the claim
 
-Return ONLY a JSON array of evidence in this exact format:
-[{{"source_url": "url", "text": "excerpt", "credibility_score": 8, "supports_claim": true}}]
+Return ONLY a JSON array:
+[{{"source_url": "actual_url", "text": "specific excerpt with facts/dates", "credibility_score": 8, "supports_claim": true}}]
 
-Be thorough. The trial depends on the quality of your investigation.
+Be specific. Include dates, names, numbers. No vague statements.
 """
 
 async def investigator(state: TrialState) -> TrialState:
-    """Gather neutral baseline evidence"""
+    """Gather neutral baseline evidence using Gemini's grounding"""
     claims_text = "\n".join([f"- {c['text']}" for c in state["selected_claims"]])
     
-    # Web search for evidence
-    search_results = []
-    for claim in state["selected_claims"]:
-        results = await blackboard.web_search(claim["text"], top_k=3)
-        search_results.extend(results)
-    
-    # Generate investigation report
+    # Use Gemini with Google Search grounding
     prompt = INVESTIGATOR_PROMPT.format(claims=claims_text)
-    response = await llm_clients.generate_gemini_pro(prompt, temperature=0.3)
+    
+    # Gemini will search the web and cite real sources
+    response = await llm_clients.generate_gemini_grounded(prompt)
     
     try:
         json_start = response.find('[')
         json_end = response.rfind(']') + 1
         evidence = json.loads(response[json_start:json_end])
     except:
-        evidence = []
+        # Fallback: create basic evidence structure
+        evidence = [{
+            "source_url": "web_search",
+            "text": response[:500],
+            "credibility_score": 5,
+            "supports_claim": False,
+            "timestamp": datetime.now().isoformat()
+        }]
     
     # Add timestamp to evidence
     for e in evidence:
-        e["timestamp"] = datetime.now().isoformat()
+        if "timestamp" not in e:
+            e["timestamp"] = datetime.now().isoformat()
     
     # Store in investigator namespace
     for e in evidence:

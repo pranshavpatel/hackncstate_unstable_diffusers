@@ -12,7 +12,14 @@ Prosecutor's argument: {prosecutor_argument}
 Provide a brief rebuttal (max 150 words) with:
 1. Counter the prosecutor's main point
 2. Present supporting evidence
-3. Confidence score (0-100)
+3. HONEST confidence score (0-100) - Be realistic. If you have strong corroborating sources, score higher. Don't be overly defensive.
+
+Confidence guidelines:
+- 90-100: Multiple verified sources confirm the claim is true
+- 70-89: Strong evidence supports legitimacy
+- 50-69: Some supporting evidence, plausible
+- 30-49: Weak evidence, prosecutor has stronger case
+- 0-29: Very little support, likely false
 
 Return JSON:
 {{

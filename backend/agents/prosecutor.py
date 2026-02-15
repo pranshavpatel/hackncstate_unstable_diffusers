@@ -12,7 +12,14 @@ Evidence: {investigator_evidence}
 Provide a brief argument (max 150 words) with:
 1. Your main point against the claim
 2. Key evidence
-3. Confidence score (0-100)
+3. HONEST confidence score (0-100) - Be realistic. If evidence is weak or circumstantial, score lower. Only score 80+ if you have multiple verified sources directly contradicting the claim.
+
+Confidence guidelines:
+- 90-100: Multiple verified sources directly prove it's false
+- 70-89: Strong evidence suggests it's false
+- 50-69: Some evidence against, but not conclusive
+- 30-49: Weak evidence, mostly speculation
+- 0-29: Very little evidence, claim might be true
 
 Return JSON:
 {{
