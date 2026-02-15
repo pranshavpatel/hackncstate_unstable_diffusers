@@ -1,245 +1,326 @@
-# The Unreliable Narrator
+# The Unreliable Narrator ⚖️
 
-AI-powered courtroom simulation for misinformation detection. Submit suspicious content and watch AI agents battle it out in a dramatic trial, with a multi-model jury delivering the final verdict.
+<div align="center">
 
-## 🎯 Features
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![Python](https://img.shields.io/badge/python-3.9+-blue.svg)
+![React](https://img.shields.io/badge/react-18.0+-61DAFB.svg)
+![Status](https://img.shields.io/badge/status-active-success.svg)
+![HackNC](https://img.shields.io/badge/HackNC-State%202026-orange.svg)
 
-- **Multi-Agent Courtroom**: Prosecutor and Defendant AI agents argue in real-time
-- **Strategic Evidence Reveal**: Agents strategically reveal evidence across multiple rounds
-- **Multi-Model Jury**: 3-5 different AI models deliberate independently (Gemini, Claude, GPT-4o, Llama)
-- **Real-Time Streaming**: Watch arguments unfold live via Server-Sent Events
-- **Educational Breakdown**: Learn what red flags to look for in misinformation
-- **Ephemeral Vector DB**: Each case creates isolated evidence storage, deleted after verdict
+**AI-Powered Courtroom for Misinformation Detection**
 
-## 🏗️ Architecture
+*Submit suspicious content and watch AI agents battle it out in a dramatic trial*
 
-### Backend (Python + LangGraph)
-- **LangGraph**: Multi-agent workflow orchestration
-- **Google Gemini 2.5**: Primary LLM for all agents
-- **Blackboard.io**: Ephemeral vector database with namespace isolation
-- **FastAPI**: REST API + SSE streaming
-- **Multi-Model Support**: Claude, GPT-4o, Llama 3 for jury diversity
+[Demo](#-demo) • [Features](#-features) • [Quick Start](#-quick-start) • [Documentation](#-documentation)
 
-### Frontend (React)
-- **React 18**: Modern UI with hooks
-- **Framer Motion**: Smooth animations for courtroom drama
-- **SSE Client**: Real-time trial streaming
-- **Responsive Design**: Mobile-friendly courtroom interface
+</div>
 
-## 📦 Installation
+---
+
+## 🚨 The AI Misinformation Crisis
+
+We're living in an era where:
+- **Deepfakes are indistinguishable** from reality - AI-generated videos, images, and audio can fool even experts
+- **Viral misinformation spreads 6x faster** than truth on social media
+- **73% of Americans** have encountered fake news that seemed completely real
+- **Generative AI** makes creating convincing fake content easier than ever
+
+**The problem isn't just detecting lies—it's teaching people to think critically when persuasive fake content is designed to manipulate emotions.**
+
+## 🎯 Our Solution
+
+The Unreliable Narrator transforms fact-checking into an **engaging courtroom drama** where AI agents debate the credibility of suspicious content. Built for **HackNC State 2026**, this project:
+
+✅ **Analyzes multimodal content** - Text, URLs, images, and videos  
+✅ **Educates through engagement** - Learn manipulation tactics while watching the trial  
+✅ **Builds critical thinking** - Understand *why* content is fake, not just *that* it's fake  
+✅ **Scales with AI** - Instant analysis powered by multiple AI models  
+✅ **Transparent reasoning** - See the evidence and arguments, not just a verdict  
+
+### Why Courtroom Drama?
+
+Traditional fact-checkers are boring. We make it **entertaining and educational**:
+- 🎭 **Engaging**: Watch AI agents battle in real-time
+- 🧠 **Educational**: Learn red flags and manipulation tactics
+- 🔍 **Transparent**: See all evidence and reasoning
+- ⚡ **Fast**: Get verdicts in seconds with fast-track mode
+
+---
+
+## 🏗️ System Architecture
+
+```mermaid
+flowchart TD
+    User[User / Browser]
+    
+    User -->|Submits Content| Frontend[React Frontend]
+    
+    Frontend -->|POST /api/trial/start| API[FastAPI Backend]
+    Frontend <-->|SSE Stream| API
+    
+    API -->|Orchestrates| LangGraph[LangGraph Workflow]
+    
+    LangGraph -->|Extract Claims| Gemini[Google Gemini API]
+    LangGraph -->|Web Search| Internet((Internet))
+    LangGraph -->|Generate Arguments| Groq[Groq API - Llama]
+    LangGraph -->|Text-to-Speech| ElevenLabs[ElevenLabs API]
+    
+    Internet -->|Store Evidence| VectorDB[(Vector Storage)]
+    
+    LangGraph -->|Route Mode| Router{Mode?}
+    
+    Router -->|Courtroom| Trial[Trial Simulation]
+    Router -->|Fast-Track| FastTrack[Quick Analysis]
+    
+    Trial -->|5 Rounds| Debate[Prosecutor ↔ Defender]
+    Debate -->|Strategic Evidence| VectorDB
+    
+    Trial --> Jury[Multi-Model Jury]
+    FastTrack --> Jury
+    
+    Jury -->|Deliberate| Models[Gemini + Groq + Llama]
+    Models -->|Vote| Verdict[Verdict Aggregator]
+    
+    Verdict -->|Generate Insights| Education[Education Panel]
+    
+    Education -->|Display Results| Frontend
+    Verdict -->|Show Verdict| Frontend
+    
+    VectorDB -.->|Auto-Delete| Cleanup[Ephemeral Cleanup]
+    
+    style User fill:#fef3c7,stroke:#f59e0b,stroke-width:2px
+    style Frontend fill:#dbeafe,stroke:#3b82f6,stroke-width:2px
+    style API fill:#dbeafe,stroke:#3b82f6,stroke-width:2px
+    style LangGraph fill:#e0e7ff,stroke:#6366f1,stroke-width:2px
+    style Trial fill:#fee2e2,stroke:#ef4444,stroke-width:2px
+    style FastTrack fill:#d1fae5,stroke:#10b981,stroke-width:2px
+    style Jury fill:#fce7f3,stroke:#ec4899,stroke-width:2px
+    style VectorDB fill:#f3e8ff,stroke:#a855f7,stroke-width:2px
+    style Gemini fill:#fef3c7,stroke:#f59e0b,stroke-width:2px
+    style Groq fill:#fef3c7,stroke:#f59e0b,stroke-width:2px
+    style ElevenLabs fill:#d1fae5,stroke:#10b981,stroke-width:2px
+```
+
+**Key Flow:**
+1. 📥 **Input** → User submits content via React frontend
+2. 🔧 **Processing** → LangGraph orchestrates AI agents (Gemini, Groq)
+3. 💾 **Storage** → Vector database stores evidence temporarily
+4. 🎙️ **Voice** → ElevenLabs generates speech for courtroom arguments
+5. ⚖️ **Analysis** → Courtroom trial OR fast-track verdict
+6. 🎨 **Output** → Real-time streaming UI with educational insights
+
+## ✨ Features
+
+### 🎭 Dual Analysis Modes
+
+| **⚖️ Courtroom Simulation** | **⚡ Fast-Track Verdict** |
+|------------------------------|---------------------------|
+| Full dramatic trial with prosecutor & defender | Instant AI analysis for quick checks |
+| 5 rounds of strategic argumentation | Single-pass verdict generation |
+| Multi-model jury deliberation | Streamlined evidence evaluation |
+| Educational breakdown of tactics | Key findings summary |
+
+### 🤖 Multi-Agent Architecture
+- **Investigator**: Gathers neutral evidence from web sources
+- **Prosecutor**: Argues content is misinformation
+- **Defender**: Steel-mans the content's legitimacy  
+- **Jury Panel**: 3-5 AI models deliberate independently (Gemini, Groq, Llama)
+
+### 🎨 Immersive Experience
+- Real-time streaming courtroom interface
+- Courtroom-themed UI with parchment aesthetics
+- Animated arguments and evidence reveals
+- Educational "red flags" breakdown
+
+---
+
+## 🚀 Quick Start
 
 ### Prerequisites
 - Python 3.9+
 - Node.js 16+
-- API Keys (see `.env.example`)
+- API Keys: [Google Gemini](https://makersuite.google.com/app/apikey) (required), [ElevenLabs](https://elevenlabs.io) (provided by MLH)
 
-### Backend Setup
+### Installation
 
 ```bash
+# Clone the repository
+git clone https://github.com/pranshavpatel/hackncstate_unstable_diffusers.git
+cd hackncstate_unstable_diffusers
+
+# Backend setup
 cd backend
-
-# Create virtual environment
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
+source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-
-# Configure environment variables
 cp .env.example .env
-# Edit .env and add your API keys
-
-# Run the server
+# Add your API keys to .env
 python main.py
-```
 
-The backend will start on `http://localhost:8000`
-
-### Frontend Setup
-
-```bash
+# Frontend setup (new terminal)
 cd frontend
-
-# Install dependencies
 npm install
-
-# Start development server
 npm start
 ```
 
-The frontend will start on `http://localhost:3000`
+Visit `http://localhost:3000` and start your first trial!
 
-## 🔑 Required API Keys
+---
 
-Add these to `backend/.env`:
+## 📖 Documentation
 
-1. **Google Gemini API** (Required)
-   - Get from: https://makersuite.google.com/app/apikey
-   - Used for: All primary agents (Prosecutor, Defendant, Investigator, Jurors)
+### 🎬 Multimodal Content Processing
 
-2. **Blackboard.io API** (Required)
-   - Get from: https://blackboard.io
-   - Used for: Vector database, web search, RAG queries
+The Unreliable Narrator analyzes **all types of content** to combat modern misinformation:
 
-3. **Anthropic API** (Optional - for jury diversity)
-   - Get from: https://console.anthropic.com/
-   - Used for: Claude Sonnet as jury member
+| Input Type | Processing Pipeline | Example Use Case |
+|------------|---------------------|------------------|
+| **📝 Text** | Direct claim extraction | Social media posts, news articles |
+| **🔗 URL** | Web scraping → text extraction | Suspicious websites, blog posts |
+| **🖼️ Image** | OCR + visual analysis | Memes, fake screenshots, manipulated photos |
+| **🎥 Video** | Transcription + frame analysis | Deepfakes, misleading clips, viral videos |
 
-4. **OpenAI API** (Optional - for jury diversity)
-   - Get from: https://platform.openai.com/api-keys
-   - Used for: GPT-4o as jury member
+**Why multimodal matters:** Modern misinformation often combines text, images, and video to maximize emotional impact and credibility.
 
-5. **Together AI API** (Optional - for jury diversity)
-   - Get from: https://api.together.xyz/
-   - Used for: Llama 3 as jury member
+---
 
-## 🚀 Usage
+### API Keys Configuration
 
-1. Start the backend server: `python backend/main.py`
-2. Start the frontend: `npm start` in the `frontend` directory
-3. Open `http://localhost:3000` in your browser
-4. Paste suspicious content (text, URL, or claim)
-5. Click "Start Trial" and watch the courtroom drama unfold
-6. See the multi-model jury verdict with evidence breakdown
-
-## 📊 Trial Flow
-
-```
-User Input → Claim Extraction → Investigation → Trial Loop → Jury Verdict → Education
-                                                    ↓
-                                    Prosecutor ↔ Defendant
-                                    (5 rounds max, strategic evidence reveal)
-                                                    ↓
-                                    Jury updates after each argument
-                                                    ↓
-                                    Termination check (max rounds, convergence, etc.)
-```
-
-## 🎮 Demo Example
-
-Try this sample misinformation claim:
-
-```
-"NASA confirmed that aliens exist on Mars last Tuesday and will make an official announcement next week."
-```
-
-Watch as:
-1. Claims are extracted and prioritized
-2. Investigator gathers neutral evidence
-3. Prosecutor argues it's misinformation
-4. Defendant steel-mans the legitimacy
-5. Jury of 3 AI models deliberates independently
-6. Final verdict reveals the truth with evidence
-
-## 🏛️ Blackboard.io Namespace Architecture
-
-Each trial creates an isolated collection with 5 namespaces:
-
-- `investigator`: Baseline neutral evidence (read: all, write: investigator only)
-- `prosecutor`: Prosecution's revealed evidence (strategic reveal)
-- `defendant`: Defense's revealed evidence (strategic reveal)
-- `jury_notes/juror_N`: Private notes per juror (private to each juror)
-- `trial_transcript`: Complete chronological record (read: all, write: system)
-
-**All data is deleted after the verdict** - no persistence between cases.
-
-## 🎯 Hackathon Build Priority
-
-### Day 1: Core Trial Loop ✅
-- [x] LangGraph workflow with TrialState
-- [x] Investigator → Prosecutor → Defendant loop
-- [x] Blackboard.io integration with namespaces
-- [x] Basic termination (max 5 rounds)
-
-### Day 2: Jury + Frontend ✅
-- [x] 3-member jury with parallel deliberation
-- [x] Streaming courtroom UI with SSE
-- [x] Strategic evidence reveal mechanic
-- [x] Real-time argument display
-
-### Day 3: Polish + Features
-- [ ] User prediction input (before verdict)
-- [ ] Scoring system and leaderboard
-- [ ] "What You Should Have Noticed" education panel
-- [ ] Shareable verdict cards
-- [ ] Additional termination triggers
-- [ ] Mobile responsiveness
+| Service | Required | Purpose | Get Key |
+|---------|----------|---------|---------|
+| Google Gemini | ✅ Yes | Primary LLM for all agents | [Get Key](https://makersuite.google.com/app/apikey) |
+| ElevenLabs | ⚪ Optional | Text-to-speech for courtroom | [Get Key](https://elevenlabs.io) - Provided by MLH |
+---
 
 ## 🛠️ Tech Stack
 
-- **Backend**: Python, LangGraph, FastAPI, Google Gemini, Anthropic Claude, OpenAI GPT-4o
-- **Frontend**: React, Framer Motion, Axios
-- **Database**: Blackboard.io (ephemeral vector DB)
-- **Streaming**: Server-Sent Events (SSE)
-- **Deployment**: Docker-ready (optional)
+### Backend Stack
+| Technology | Purpose | Key Features |
+|------------|---------|--------------|
+| **LangGraph** | Multi-agent orchestration | State machine workflow, conditional routing |
+| **FastAPI** | REST API + SSE streaming | Async endpoints, CORS support, real-time events |
+| **Google Gemini 2.5** | Primary LLM | Flash for speed, Pro for reasoning |
+| **Groq** | Fast inference | Llama 3 models for jury diversity |
+| **ElevenLabs** | Text-to-speech | Voice synthesis for courtroom arguments |
+| **Python 3.9+** | Runtime | Async/await, type hints, Pydantic models |
 
-## 📝 Project Structure
+### Frontend Stack
+| Technology | Purpose | Key Features |
+|------------|---------|--------------|
+| **React 18** | UI framework | Hooks, functional components, state management |
+| **Framer Motion** | Animations | Page transitions, argument reveals, smooth UX |
+| **Server-Sent Events** | Real-time streaming | One-way server push, auto-reconnect |
+| **Axios** | HTTP client | API calls, file uploads, error handling |
 
-```
-HackNCState/
-├── backend/
-│   ├── agents/           # LangGraph agent nodes
-│   │   ├── claim_extractor.py
-│   │   ├── claim_triage.py
-│   │   ├── investigator.py
-│   │   ├── prosecutor.py
-│   │   ├── defendant.py
-│   │   ├── jury.py
-│   │   ├── verdict.py
-│   │   └── education.py
-│   ├── config/
-│   │   ├── settings.py   # Environment config
-│   │   └── state.py      # TrialState schema
-│   ├── utils/
-│   │   ├── blackboard.py # Vector DB client
-│   │   └── llm_clients.py # Multi-model LLM wrapper
-│   ├── workflow.py       # LangGraph orchestration
-│   ├── main.py          # FastAPI server
-│   ├── requirements.txt
-│   └── .env.example
-├── frontend/
-│   ├── public/
-│   ├── src/
-│   │   ├── components/
-│   │   │   └── Courtroom.js
-│   │   ├── App.js
-│   │   ├── App.css
-│   │   └── index.js
-│   └── package.json
-└── README.md
-```
 
-## 🎨 Design Philosophy
+### Key Technical Decisions
 
-- **Courtroom Drama**: Cinematic, immersive experience with real-time streaming
-- **Evidence-Based**: Arguments scored on evidence quality, not rhetoric
-- **Educational**: Every trial teaches media literacy skills
-- **Privacy-First**: Ephemeral storage, no data persistence between cases
-- **Multi-Model**: Jury diversity prevents single-model bias
+**Why LangGraph?**
+- ✅ Built-in state management for multi-agent workflows
+- ✅ Conditional routing (courtroom vs fast-track)
+- ✅ Easy debugging and visualization
+- ✅ Async-first design
 
-## 🐛 Troubleshooting
+**Why Server-Sent Events over WebSockets?**
+- ✅ Simpler implementation (one-way communication)
+- ✅ Auto-reconnect built-in
+- ✅ Works with standard HTTP/HTTPS
+- ✅ Better for streaming updates from server
 
-**Backend won't start:**
-- Check Python version: `python --version` (need 3.9+)
-- Verify API keys in `.env`
-- Install dependencies: `pip install -r requirements.txt`
+**Why Ephemeral Storage?**
+- ✅ Privacy-first: no data retention
+- ✅ Prevents cross-contamination between trials
+- ✅ Reduces storage costs
+- ✅ Forces fresh analysis each time
 
-**Frontend won't connect:**
-- Ensure backend is running on port 8000
-- Check CORS settings in `main.py`
-- Verify `API_BASE` in `App.js` matches backend URL
+---
 
-**No jury verdicts:**
-- Check that at least Gemini API key is configured
-- Other jury models (Claude, GPT-4o) are optional but enhance diversity
+## 🎓 Educational Impact: Teaching Critical Thinking
+
+The Unreliable Narrator doesn't just tell you if content is fake—it **teaches you WHY and HOW to spot it yourself**.
+
+### What Users Learn
+
+After each trial, users receive an **Education Panel** that reveals:
+
+| Red Flag Category | What You Learn | Example |
+|-------------------|----------------|---------|
+| **🎯 Emotional Manipulation** | How content exploits fear, anger, or outrage | "SHOCKING: They don't want you to know..." |
+| **📊 Statistical Deception** | Misleading graphs, cherry-picked data | "95% of doctors agree" (sample size: 20) |
+| **🔗 Source Quality** | Evaluating credibility of sources | Anonymous blog vs peer-reviewed journal |
+| **🖼️ Visual Manipulation** | Spotting edited images, deepfakes | Mismatched lighting, unnatural movements |
+| **⏰ Temporal Context** | Old content presented as recent | 2015 photo claimed to be from yesterday |
+
+### Building Immunity to Misinformation
+
+**Traditional fact-checkers:** "This is false."  
+**The Unreliable Narrator:** "This is false BECAUSE it uses emotional manipulation, cherry-picked data, and anonymous sources. Here's how to spot these tactics next time."
+
+By watching AI agents debate and reveal evidence, users develop:
+- 🧠 **Critical thinking skills** - Question before sharing
+- 🔍 **Source evaluation** - Check credibility automatically  
+- 🎭 **Manipulation awareness** - Recognize emotional triggers
+- 📚 **Media literacy** - Understand how misinformation spreads
+
+**The goal:** Make users harder to fool, even when we're not there.
+
+---
+
+## 👥 Team
+- **Pranshav Patel**
+- **Janam Patel**
+- **Namit Patel**
+- **Vivek Vanera**
+
+*HackNC State 2026 Participants*
+
+---
 
 ## 📄 License
 
-MIT License - Built for HackNCState 2024
+This project is licensed under the MIT License
+
+---
+
+## 🌟 Contributing
+
+We welcome contributions! This project aims to combat misinformation through:
+- **Education**: Teaching media literacy through engagement
+- **Transparency**: Open-source AI fact-checking
+- **Accessibility**: Free tools for everyone
+
+To contribute:
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+---
 
 ## 🙏 Acknowledgments
 
-- Google Gemini for primary LLM capabilities
-- Blackboard.io for ephemeral vector database
-- LangGraph for multi-agent orchestration
-- Anthropic, OpenAI, Together AI for jury model diversity
+- **Google Gemini** for powerful LLM capabilities
+- **ElevenLabs** for text-to-speech API (provided by MLH)
+- **Major League Hacking (MLH)** for ElevenLabs API credits
+- **LangGraph** for multi-agent orchestration framework
+- **HackNC State 2026** for the opportunity to build this project
+- The open-source community for amazing tools and libraries
+
+---
+
+## 📞 Contact & Support
+
+- **Issues**: [GitHub Issues](https://github.com/pranshavpatel/hackncstate_unstable_diffusers/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/pranshavpatel/hackncstate_unstable_diffusers/discussions)
+
+---
+
+<div align="center">
+
+**Made with ⚖️ for a more informed world**
+
+*Combating misinformation, one trial at a time*
+
+</div>
