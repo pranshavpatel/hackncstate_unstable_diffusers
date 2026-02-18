@@ -5,6 +5,7 @@ import InvestigationPanel from './InvestigationPanel';
 import EpochPanel from './EpochPanel';
 import ConversationHistory from './ConversationHistory';
 import FinalVerdictPanel from './FinalVerdictPanel';
+import Character from './Character';
 
 const Courtroom = ({ caseId, originalContent }) => {
   // State machine following the exact flow requested
@@ -64,19 +65,24 @@ const Courtroom = ({ caseId, originalContent }) => {
     setIsPlayingAudio(false);
   };
 
-  // Audio playback helper with queue
-  const playAudio = (audioUrl) => {
+  // Audio playback helper with queue and delay
+  const playAudio = (audioUrl, agent = 'defender') => {
     if (!audioUrl) return;
 
-    // Add to queue only if not already queued (prevent duplicates)
-    setAudioQueue(prev => {
-      if (prev.includes(audioUrl)) {
-        console.log('[AUDIO] Skipping duplicate audio:', audioUrl);
-        return prev;
-      }
-      console.log('[AUDIO] Queueing audio:', audioUrl);
-      return [...prev, audioUrl];
-    });
+    // Shorter delay for prosecutor (first speaker), normal for defender
+    const delay = agent === 'prosecutor' ? 500 : 1500;
+
+    // Add delay before queueing to let text display first
+    setTimeout(() => {
+      setAudioQueue(prev => {
+        if (prev.includes(audioUrl)) {
+          console.log('[AUDIO] Skipping duplicate audio:', audioUrl);
+          return prev;
+        }
+        console.log('[AUDIO] Queueing audio:', audioUrl);
+        return [...prev, audioUrl];
+      });
+    }, delay);
   };
 
   // Process audio queue - play one at a time
@@ -91,11 +97,25 @@ const Courtroom = ({ caseId, originalContent }) => {
         const audio = new Audio(`http://localhost:8000${audioUrl}`);
         currentAudioRef.current = audio; // Store reference to current audio
 
+        // Preload audio to reduce delay
+        audio.preload = 'auto';
+
         // Wait for audio to finish before playing next
         await new Promise((resolve, reject) => {
           audio.onended = resolve;
-          audio.onerror = reject;
-          audio.play().catch(reject);
+          audio.onerror = (e) => {
+            console.warn('Audio error, skipping:', e);
+            resolve(); // Continue to next audio even on error
+          };
+
+          // Start playing
+          const playPromise = audio.play();
+          if (playPromise !== undefined) {
+            playPromise.catch(error => {
+              console.error('Audio playback error:', error);
+              resolve(); // Continue even if play fails
+            });
+          }
         });
       } catch (error) {
         console.error('Audio playback failed:', error);
@@ -175,15 +195,15 @@ const Courtroom = ({ caseId, originalContent }) => {
             // Set ready flags based on what we received
             if (data.agent === 'prosecutor') {
               setProsecutorReady(true);
-              // Auto-play audio for prosecutor
+              // Auto-play audio for prosecutor (shorter delay)
               if (data.audio_url) {
-                playAudio(data.audio_url);
+                playAudio(data.audio_url, 'prosecutor');
               }
             } else if (data.agent === 'defendant') {
               setDefenderReady(true);
-              // Auto-play audio for defendant
+              // Auto-play audio for defendant (normal delay)
               if (data.audio_url) {
-                playAudio(data.audio_url);
+                playAudio(data.audio_url, 'defendant');
               }
             }
 
@@ -350,19 +370,31 @@ const Courtroom = ({ caseId, originalContent }) => {
     }
   }, [actState, currentEpoch, transcript]);
 
-  // Loading spinner component
-  const LoadingSpinner = ({ message = 'Processing...' }) => (
+  // Loading spinner component with flexible role
+  const LoadingSpinner = ({
+    message = 'Processing...',
+    role = 'investigator',
+    text = 'Processing...'
+  }) => (
     <div style={{
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
-      padding: '2rem'
+      padding: '2rem',
+      gap: '1rem'
     }}>
+      <Character
+        role={role}
+        isActive={true}
+        position="center"
+        text={text}
+        isStreaming={true}
+      />
       <div style={{
         fontSize: '3rem',
         animation: 'spin 1s linear infinite'
       }}>
-        🔨
+        {role === 'jury' ? '⚖️' : '🔨'}
       </div>
       <p style={{ marginTop: '1rem', color: 'var(--color-oak)', fontWeight: 'bold' }}>
         {message}
@@ -479,7 +511,11 @@ const Courtroom = ({ caseId, originalContent }) => {
                 />
               ) : (
                 <div className="panel">
-                  <LoadingSpinner />
+                  <LoadingSpinner
+                    message="Jury deliberating..."
+                    role="jury"
+                    text="Deliberating on the evidence and arguments presented..."
+                  />
                 </div>
               )}
             </>

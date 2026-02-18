@@ -86,6 +86,36 @@ class LLMClients:
         )
         return response.text
     
+    
+    async def analyze_video_with_file(self, video_file_path: str, prompt: str) -> tuple[str, any]:
+        """Analyze video content using Gemini and return both response and file object for reuse"""
+        # Upload video file to Gemini
+        print(f"[VIDEO] Uploading video: {video_file_path}")
+        video_file = self.client.files.upload(file=video_file_path)
+        print(f"[VIDEO] Upload complete. File name: {video_file.name}")
+        print(f"[VIDEO] Processing state: {video_file.state}")
+        
+        # Wait for processing
+        while video_file.state == "PROCESSING":
+            print("[VIDEO] Waiting for video processing...")
+            await asyncio.sleep(2)
+            video_file = self.client.files.get(name=video_file.name)
+        
+        if video_file.state == "FAILED":
+            raise Exception(f"Video processing failed: {video_file.name}")
+        
+        print(f"[VIDEO] Processing complete. Generating content...")
+        
+        # Generate content from video
+        response = self.client.models.generate_content(
+            model='gemini-2.0-flash',
+            contents=[video_file, prompt],
+            config={'temperature': 0.3}
+        )
+        
+        # Return both response and file object (don't delete yet)
+        return response.text, video_file
+    
     async def analyze_video(self, video_file_path: str, prompt: str) -> str:
         """Analyze video content using Gemini"""
         # Upload video file to Gemini
