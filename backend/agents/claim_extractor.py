@@ -42,12 +42,15 @@ async def claim_extractor(state: TrialState) -> TrialState:
     elif input_type == "video":
         print(f"[CLAIM EXTRACTOR] Processing video: {raw_input}")
         # Analyze video and extract claims directly
-        response = await llm_clients.analyze_video(
+        # Store the video file for later reuse by investigator
+        response, video_file = await llm_clients.analyze_video_with_file(
             raw_input,
             CLAIM_EXTRACTOR_PROMPT.format(
                 content="Analyze this video comprehensively. Extract all factual claims made in the video, including both spoken statements and visual information presented."
             )
         )
+        # Store video file in state for investigator to reuse
+        state["uploaded_video_file"] = video_file
     elif input_type == "image":
         print(f"[CLAIM EXTRACTOR] Processing image: {raw_input}")
         # Analyze image and extract claims

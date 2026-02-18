@@ -79,21 +79,21 @@ const FinalVerdictPanel = ({ verdict, awarenessScore, onRestart }) => {
                 <div style={{ fontSize: '1.5rem', marginBottom: '1rem', color: getScoreColor(score) }}>
                     {category}
                 </div>
-                <p>{summary}</p>
+                <p style={{ color: '#f5e6d3' }}>{summary}</p>
             </div>
 
             {awarenessScore && (
                 <div style={{
                     marginTop: '2rem',
                     padding: '1.5rem',
-                    background: 'rgba(212, 163, 115, 0.1)',
+                    background: 'rgba(212, 163, 115, 0.2)',
                     borderRadius: '8px',
                     border: '2px solid var(--color-oak)'
                 }}>
-                    <h3 style={{ color: 'var(--color-oak)', marginTop: 0 }}>
+                    <h3 style={{ color: 'var(--color-text-dark)', marginTop: 0 }}>
                         Your Awareness Score: {awarenessScore.score}/10
                     </h3>
-                    <p style={{ margin: 0, fontSize: '1rem' }}>
+                    <p style={{ margin: 0, fontSize: '1rem', color: 'var(--color-text-dark)' }}>
                         {awarenessScore.feedback}
                     </p>
                 </div>

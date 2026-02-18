@@ -33,17 +33,25 @@ SCORING_PROMPT = """You are evaluating a user's awareness of misinformation duri
 {rubric}
 
 **Your Task**:
-1. Evaluate the user's overall awareness based on their judgements throughout the trial
-2. Assign a single score from 1-10
-3. Provide educational feedback explaining what fraud indicators they should watch for
+1. **Compare** the user's judgements with the jury's final verdict
+2. **Evaluate** how well the user detected fraud/misinformation
+3. **Assign** a score from 1-10 based on alignment:
+   - If jury said "Likely False" or "Verified False" and user said "misleading" → HIGH score (8-10)
+   - If jury said "Likely False" and user said "not sure" → LOW score (3-5)
+   - If jury said "Likely False" and user said "plausible" → VERY LOW score (1-2)
+   - If jury said "Verified True" and user said "plausible" → HIGH score (8-10)
+   - If jury said "Verified True" and user said "not sure" → MEDIUM score (5-6)
+   - If jury said "Verified True" and user said "misleading" → VERY LOW score (1-2)
+
+4. **Provide** specific, educational feedback about what they missed
 
 Return STRICT JSON (no markdown, no triple backticks):
 {{
-  "score": 7,
-  "feedback": "You showed good awareness of misleading claims in round 2, but missed some red flags in round 1. Key things to watch for: (1) Check if sources are credible and verifiable, (2) Look for emotional manipulation instead of facts, (3) Notice when claims lack specific evidence. Overall, you're developing solid fraud detection skills - keep questioning weak arguments!"
+  "score": <number from 1-10 based on alignment with jury verdict>,
+  "feedback": "<specific feedback about their performance vs the correct verdict>"
 }}
 
-Make the feedback encouraging, educational, and specific about what to look for in future trials.
+Be HONEST in scoring. If the user was wrong or uncertain when they should have been confident, give a LOW score.
 """
 
 async def awareness_scorer(state: TrialState) -> TrialState:
